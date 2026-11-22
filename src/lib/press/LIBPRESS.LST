@@ -1,0 +1,4 @@
+; LIBPRESS: the library's modules, built from the source beside this list, in its archive's order.
+libpress.obj
+vlc.obj
+table.obj

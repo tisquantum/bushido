@@ -1,0 +1,8 @@
+# The executables this tree builds: each from its command file for the linker, the names in which are
+# object and library files of the sources under the directory given, with the tree's shared headers in
+# the directory given, every unit compiled with the define given (where one is), the commons laid out
+# in the declared storage order, and the SHA-256 the built executable has.
+program	executable	build	command file	objects in	headers in	define	storage order	sha256
+SCUS	SCUS_941.80	-	config/bushidoblade/SCUS.LNK	src	include	-	config/bushidoblade/commons.tsv	3db8eb15607e5f67a5efbf52143e57515bbfbfc3976e1ca6ef9150e67094e264
+SLPM	SLPM_860.20	japan	config/bushidoblade/SCUS.LNK	src	include	VERSION_JP	config/bushidoblade/commons.tsv	0164189a870ba87495a3c0010adb85535ae5a798bbd0dd276b88bf24ecc3ceda
+SCES	SCES_008.99	europe	config/bushidoblade/SCUS.LNK	src	include	VERSION_EU	config/bushidoblade/commons.tsv	7f9c11d57d08358f8513a0886233ebbcfbcfbda178f7eceb725af70deb2db3ce

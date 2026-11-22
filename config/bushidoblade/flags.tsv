@@ -1,0 +1,18 @@
+# How each part of the tree is compiled and assembled: the compiler and its options, the assembler,
+# whether the assembler follows each divide by a variable with its zero and overflow checks (without
+# them it is given -0), and whether it is given -P. A part is the programs' own code, a library (every
+# module its member list names) or one module of a library, which then departs from its library.
+part	compiler	options	assembler	divide checks	-P
+programs	CC1PSX.EXE 2.7.2.SN32.3.7	-O2 -G8	ASPSX.EXE 2.21	yes	no
+library LIBAPI	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBC	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBCARD	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBCD	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBCOMB	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBETC	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBGTE	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBPRESS	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBSND	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBSPU	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.34	yes	no
+library LIBSN	CC1PSX.EXE 2.6.0	-O2 -G0	ASPSX.EXE 2.21	yes	no
+library LIBGPU	CC1PSX.EXE 2.7.2.SN32.3.7	-O2 -G0 -fno-builtin	ASPSX.EXE 2.56	no	no

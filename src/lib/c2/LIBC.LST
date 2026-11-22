@@ -1,0 +1,12 @@
+; LIBC: the library's modules, built from the source beside this list, in its archive's order.
+a63.obj
+c19.obj
+c25.obj
+c27.obj
+c42.obj
+c46.obj
+c47.obj
+c48.obj
+c63.obj
+sprintf.obj
+memmove.obj

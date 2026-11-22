@@ -1,0 +1,8 @@
+# The arrays the source includes whose bytes this tree does not hold: the original's own data. Each
+# row is one executable that holds them, at its address, of its size, in its section; the bytes'
+# SHA-256 is the same in every executable that holds them. The include named holds the array's
+# initializer: the bytes as elements of the layout given, in order, comma-separated.
+include	symbol	unit	program	address	size	section	sha256	format	layout
+content/now_loading.inc	gNowLoadingTim	src/font_hud.c	SCES	0x80084694	1472	.data	0ef8f59b68a0069b25c23e5813e55e87ffbc7da434c9e25bb2a7d781d16c011e	TIM image	u32 little-endian
+content/now_loading.inc	gNowLoadingTim	src/font_hud.c	SCUS	0x80084284	1472	.data	0ef8f59b68a0069b25c23e5813e55e87ffbc7da434c9e25bb2a7d781d16c011e	TIM image	u32 little-endian
+content/now_loading_jp.inc	gNowLoadingTim	src/font_hud.c	SLPM	0x80085D7C	2240	.data	a2cf28fac3667033a26452f68b85e122a6913dcddb4448f18b39801ead23de61	TIM image	u32 little-endian

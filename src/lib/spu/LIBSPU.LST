@@ -1,0 +1,24 @@
+; LIBSPU: the library's modules, built from the source beside this list, in its archive's order.
+spu.obj
+s_dcb.obj
+s_ini.obj
+s_i.obj
+s_q.obj
+s_m.obj
+s_m_int.obj
+s_m_util.obj
+s_m_init.obj
+s_m_m.obj
+s_m_f.obj
+s_sav.obj
+s_snv.obj
+s_sr.obj
+s_rmp.obj
+s_srmp.obj
+s_crwa.obj
+s_w.obj
+s_stsa.obj
+s_stm.obj
+s_itc.obj
+s_it.obj
+s_sca.obj

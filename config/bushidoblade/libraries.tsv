@@ -1,0 +1,25 @@
+# The libraries the executables link, in the order their command file names them: each built from the
+# modules its member list names, in that list's order (the order the linker breaks a tie between two
+# definitions by), or taken from the kit. The kit file is the library as Sony shipped it, by its
+# SHA-256: a library built from its members departs from it only where the original's did, and lists
+# its commons as the kit's does (plain, as Sony's 3.6 archives and PSYLIB 1.04; marked by a leading
+# zero byte, as PSYLIB 2.x and Sony's 3.7 LIBGPU). A row naming a release is another release's archive
+# of its library, which the link never reads: each module the executables link is the member of the
+# kit's file or of such an archive that its bytes equal.
+library	member list	kit file	kit sha256	commons listed	linked	release
+LIBC	src/lib/c2/LIBC.LST	LIBC.LIB	b43c502544e3ef8df63471b72e6c1989b9b1d5cec436bdab8e28058e6dfd78a3	plain	its members	-
+LIBCARD	src/lib/card/LIBCARD.LST	LIBCARD.LIB	c0b60a9c835b13c6e9abd97590a4cfbdc0d17641d6d4b35e41fead8a0143e513	plain	its members	-
+LIBGPU	src/lib/gpu/LIBGPU.LST	LIBGPU.LIB	13699ef97393b683040c621073ab2bb39b5592db041b7b352ac51a000f3c0bdb	marked	its members	-
+LIBGTE	src/lib/gte/LIBGTE.LST	LIBGTE.LIB	10b8ec5e82a5e5851cb527a476f0bb1d14756211cc42982b62c2e70c0ed52483	plain	its members	-
+LIBCD	src/lib/cd/LIBCD.LST	LIBCD.LIB	ef1234879ccd437b28681a14f4f46c35100706ae3657c9f668ea398ecbe25abf	plain	its members	-
+LIBETC	src/lib/etc/LIBETC.LST	LIBETC.LIB	01cd8a876c944857eb6e2d33ccc5abab57a31f0cec6d66edc4b3825bb48cbf80	plain	its members	-
+LIBSN	src/lib/libsn/LIBSN.LST	LIBSN.LIB	1ef99108b065166613a4bf6c5b46a74bd0f584e8a570926e8e0c66497e64f547	plain	its members	-
+LIBSND	src/lib/snd/LIBSND.LST	LIBSND.LIB	32d78c44c78c31f4c3f22f5e79138755997c2f3177215766a6627831ef1efeb8	plain	its members	-
+LIBSPU	src/lib/spu/LIBSPU.LST	LIBSPU.LIB	fddad12dfe4f7e7b0be0e8b10de6d3e1531fcdd23bf8da48deea4ebef1d8e641	plain	its members	-
+LIBAPI	src/lib/api/LIBAPI.LST	LIBAPI.LIB	556989b36f4dfa57e447f30c0487d1514a94c3eb15c3a7fc9f0215964b71a80c	plain	its members	-
+LIBCOMB	src/lib/comb/LIBCOMB.LST	-	-	plain	its members	-
+LIBPRESS	src/lib/press/LIBPRESS.LST	LIBPRESS.LIB	9b0859727758aed36f58b8f0d8dfe79c1aa1d9ccf556de2134e7af3212c2609f	plain	its members	-
+2MBYTE	-	2MBYTE.OBJ	b4ed8b2e76bc841f7a81132906d846877aefa8f6233fb738600c8b1ebd032a46	-	not linked	-
+LIBGS	-	LIBGS.LIB	b05e799a5d9070e0f31cab644c9e9bd1204ea10354c8e4f8d142ac4d2a3a3f3a	-	not linked	-
+LIBAPI	-	LIBAPI.LIB	ccd3a39c191b542f330e8d4f398597eeebecf2c5a1bcecfae96b14c55b57623f	marked	not linked: another release, for comparison	3.7.3 beta
+LIBCOMB	-	LIBCOMB.LIB	ca469b2c909b293c98e03e69a96e0dd24ee66ad62af8a0bfb7e3e295c8ebfd59	plain	not linked: another release, for comparison	3.7.3 beta

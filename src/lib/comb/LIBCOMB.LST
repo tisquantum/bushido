@@ -1,0 +1,2 @@
+; LIBCOMB: the library's modules, built from the source beside this list, in the order the image holds them.
+comb.obj
