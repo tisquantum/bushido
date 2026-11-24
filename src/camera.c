@@ -160,6 +160,9 @@ void UpdateBattleCamera(int mode, VECTOR *primaryTarget, VECTOR *secondaryTarget
     int yawOffset;
     int replayYaw;
     int evenLeading;
+#ifdef TARGET_PC
+    int replayTicks = 0;
+#endif
 
     replayFrame = frameIndex;
     wallHeader = gStageCameraWalls;
@@ -283,11 +286,27 @@ void UpdateBattleCamera(int mode, VECTOR *primaryTarget, VECTOR *secondaryTarget
         scratch->focusTarget.vy = (primaryTarget->vy + secondaryTarget->vy) / 2;
         scratch->focusTarget.vz = (primaryTarget->vz + secondaryTarget->vz) / 2;
     } else {
+#ifdef TARGET_PC
+        /* The replay's sweep in ticks (pc_substep.h), so it moves on every tick. */
+        replayTicks = PC_TICKS(replayFrame) < 0 ? 0 : PC_TICKS(replayFrame);
+        primaryWeight = replayTicks + 192 * PC_TICKS_PER_FRAME;
+        secondaryWeight = 320 * PC_TICKS_PER_FRAME - replayTicks;
+        scratch->focusTarget.vx = (int)(((long long)primaryTarget->vx * primaryWeight +
+                                         (long long)secondaryTarget->vx * secondaryWeight) /
+                                        (512 * PC_TICKS_PER_FRAME));
+        scratch->focusTarget.vy = (int)(((long long)primaryTarget->vy * primaryWeight +
+                                         (long long)secondaryTarget->vy * secondaryWeight) /
+                                        (512 * PC_TICKS_PER_FRAME));
+        scratch->focusTarget.vz = (int)(((long long)primaryTarget->vz * primaryWeight +
+                                         (long long)secondaryTarget->vz * secondaryWeight) /
+                                        (512 * PC_TICKS_PER_FRAME));
+#else
         primaryWeight = replayFrame + 192;
         secondaryWeight = 320 - replayFrame;
         scratch->focusTarget.vx = (primaryTarget->vx * primaryWeight + secondaryTarget->vx * secondaryWeight) / 512;
         scratch->focusTarget.vy = (primaryTarget->vy * primaryWeight + secondaryTarget->vy * secondaryWeight) / 512;
         scratch->focusTarget.vz = (primaryTarget->vz * primaryWeight + secondaryTarget->vz * secondaryWeight) / 512;
+#endif
     }
 
     ApproachCameraTarget(&scratch->focusTarget);
@@ -314,7 +333,11 @@ void UpdateBattleCamera(int mode, VECTOR *primaryTarget, VECTOR *secondaryTarget
     }
 
     if (mode != BATTLE_CAMERA_LIVE) {
+#ifdef TARGET_PC
+        wallDistOrFov = (replayTicks / (4 * PC_TICKS_PER_FRAME) + 33) * 250 / 100;
+#else
         wallDistOrFov = (replayFrame / 4 + 33) * 250 / 100;
+#endif
     } else {
         wallDistOrFov = 165;
     }
@@ -361,9 +384,16 @@ void UpdateBattleCamera(int mode, VECTOR *primaryTarget, VECTOR *secondaryTarget
         scratch->targetAngles.vz = 0;
     } else {
         scratch->targetAngles.vx = pitch;
+#ifdef TARGET_PC
+        replayYaw = ratan2(dx * (227 * PC_TICKS_PER_FRAME - replayTicks) / (195 * PC_TICKS_PER_FRAME),
+                           dz * (227 * PC_TICKS_PER_FRAME - replayTicks) / (195 * PC_TICKS_PER_FRAME)) - 512;
+        scratch->targetAngles.vz = 0;
+        scratch->targetAngles.vy = (replayTicks * ANGLE_HALF / (195 * PC_TICKS_PER_FRAME) - replayYaw) & ANGLE_MASK;
+#else
         replayYaw = ratan2(dx * (227 - replayFrame) / 195, dz * (227 - replayFrame) / 195) - 512;
         scratch->targetAngles.vz = 0;
         scratch->targetAngles.vy = (replayFrame * ANGLE_HALF / 195 - replayYaw) & ANGLE_MASK;
+#endif
         if (replayFrame == 0) {
             angleDivisor = 1;
         }
@@ -503,7 +533,8 @@ void UpdateContinueOrbitCamera(Fighter *fighter, int orbitProgress, int baseYaw)
     gCameraState.angles.vz = 0;
     gCameraState.angles.vy = prevYaw + yawStep;
     targetDistance = orbitProgress * 6000 / ONE + 1500;
-    gCameraState.distance += (targetDistance - gCameraState.distance) / 32;
+    gCameraState.distance += PC_APPROACH_EX((targetDistance - gCameraState.distance) / 32,
+                                            targetDistance - gCameraState.distance, PC_KEEP(32));
 }
 
 void AimSceneCameraAtFighter(Fighter *fighter, int progress)
@@ -545,7 +576,7 @@ void AimSceneCameraAtFighter(Fighter *fighter, int progress)
     camera->angles.vz = 0;
     camera->distance = 0;
     if (gCurrentStageId == 9) {
-        camera->target.vy -= 64;
+        camera->target.vy -= PC_SHARE(64);
     }
 }
 

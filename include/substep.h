@@ -13,6 +13,7 @@
 #define PC_DECAY_EX(original, value, retentionQ12) (original)
 #define PC_APPROACH_EX(original, distance, retentionQ12) (original)
 #define PC_TICKS_PER_FRAME 1
+#define PC_TICKS(frames) (frames)
 #define PC_FRAME_INC(x) (++(x))
 #define PC_ON_LAST(perFrame) (perFrame)
 #endif

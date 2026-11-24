@@ -10,6 +10,7 @@
 #include <libcd.h>
 #include <rand.h>
 
+#include "substep.h"
 #include "gpu_code.h"
 #include "cd.h"
 #include "display_buffer.h"
@@ -95,10 +96,18 @@ void UpdateVictorySceneState(void)
     int playMode;
     unsigned int pressed;
 
+#ifdef TARGET_PC
+    /* The camera sweeps on every tick; the count is the frame's on its last (pc_substep.h). */
+    SetCameraTransitionFromFighter(&gFighters[gMatchWinnerSide],
+                                   (PC_TICKS(PC_FRAME_INC(gStateFrameTimer)) << 12) /
+                                       (VICTORY_SCENE_FRAMES * PC_TICKS_PER_FRAME));
+#else
     ++gStateFrameTimer;
     SetCameraTransitionFromFighter(&gFighters[gMatchWinnerSide], (gStateFrameTimer << 12) / VICTORY_SCENE_FRAMES);
+#endif
     UpdateSceneCameraAndWind();
-    UpdateCombatDistanceAndKoTimer();
+    if (PC_FIRST_SUBTICK)
+        UpdateCombatDistanceAndKoTimer();
     input.released = 0;
     input.pressed = 0;
     input.held = 0;
@@ -109,11 +118,16 @@ void UpdateVictorySceneState(void)
     TraceCameraSightlineTo(gFighters[0].position.vx, gFighters[0].position.vz);
     TraceCameraSightlineTo(gFighters[1].position.vx, gFighters[1].position.vz);
     EndSceneFrame();
-    UpdateAmbientSounds();
+    if (PC_LAST_SUBTICK)
+        UpdateAmbientSounds();
     FlushQueuedSounds();
     if (gPlayMode == PLAY_MODE_SLASH)
         DrawHudBanner(HUD_BANNER_SLASH_VICTORY);
 
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK)
+        return;
+#endif
     if (gStateFrameTimer < VICTORY_SCENE_FRAMES) {
         pressed = gPadState.pressed;
         if (!(pressed & (MENU_CANCEL << (gMatchWinnerSide * 16))) &&
@@ -336,13 +350,20 @@ void UpdateContinueScreenState(void)
         defeated = &gFighters[0];
     }
     if (gContinueConfirmTimer <= 0) {
+#ifdef TARGET_PC
+        /* The frames counted down, in ticks (pc_substep.h), so the orbit moves on every tick. */
+        orbitProgress = (PC_TICKS(CONTINUE_COUNTDOWN_FRAMES - gStateFrameTimer) << 12) /
+            (CONTINUE_COUNTDOWN_FRAMES * PC_TICKS_PER_FRAME);
+#else
         orbitProgress = ((CONTINUE_COUNTDOWN_FRAMES - gStateFrameTimer) << 12) / CONTINUE_COUNTDOWN_FRAMES;
+#endif
     } else {
         orbitProgress = 0;
     }
     UpdateContinueOrbitCamera(defeated, orbitProgress, gContinueOrbitYaw);
     UpdateSceneCameraAndWind();
-    UpdateCombatDistanceAndKoTimer();
+    if (PC_FIRST_SUBTICK)
+        UpdateCombatDistanceAndKoTimer();
     emptyInput.released = 0;
     emptyInput.pressed = 0;
     emptyInput.held = 0;
@@ -354,9 +375,21 @@ void UpdateContinueScreenState(void)
     TraceCameraSightlineTo(gFighters[1].position.vx, gFighters[1].position.vz);
     DisableStageTileNearClip();
     EndSceneFrame();
-    UpdateAmbientSounds();
+    if (PC_LAST_SUBTICK)
+        UpdateAmbientSounds();
     FlushQueuedSounds();
 
+#ifdef TARGET_PC
+    /* The countdown and the choice are the frame's last tick's; the ticks before draw what it will. */
+    if (!PC_LAST_SUBTICK) {
+        if (gContinueConfirmTimer > 0) {
+            DrawHudBanner(HUD_BANNER_CONTINUE);
+        } else {
+            DrawContinueCountdown((gStateFrameTimer - 1) / CONTINUE_FRAMES_PER_SECOND);
+        }
+        return;
+    }
+#endif
     if (gContinueConfirmTimer > 0) {
         if (gStateFrameTimer < 16) {
             gStateFrameTimer++;
@@ -534,7 +567,8 @@ void UpdateApproachCutsceneState(void)
 
     AimSceneCameraAtFighter(gFighters, ((APPROACH_PART_FRAMES - gStateFrameTimer) << 12) / APPROACH_PART_FRAMES);
     UpdateSceneCameraAndWind();
-    UpdateCombatDistanceAndKoTimer();
+    if (PC_FIRST_SUBTICK)
+        UpdateCombatDistanceAndKoTimer();
     input.released = 0;
     input.pressed = 0;
     input.held = 0;
@@ -577,6 +611,14 @@ void UpdateApproachCutsceneState(void)
         }
     }
     input.notHeld = ~input.held & 0xffff;
+#ifdef TARGET_PC
+    /* The script is a pad's: the ticks before the frame's last hold the last frame's buttons. */
+    if (!PC_LAST_SUBTICK) {
+        input = gFighters[0].currentInput;
+        input.pressed = 0;
+        input.released = 0;
+    }
+#endif
     UpdateFighterFrame(0, &input);
     input.released = 0;
     input.pressed = 0;
@@ -587,8 +629,13 @@ void UpdateApproachCutsceneState(void)
     TraceCameraSightlineTo(gFighters[0].position.vx, gFighters[0].position.vz);
     TraceCameraSightlineTo(gFighters[1].position.vx, gFighters[1].position.vz);
     EndSceneFrame();
-    UpdateAmbientSounds();
+    if (PC_LAST_SUBTICK)
+        UpdateAmbientSounds();
     FlushQueuedSounds();
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK)
+        return;
+#endif
     gStateFrameTimer++;
     if (gPadState.pressed & BOTH_PADS(MENU_CANCEL)) {
         StopCombatRumbleAndAudio();
@@ -679,10 +726,18 @@ void UpdateSlashClearCutsceneState(void)
     DR_TPAGE *fadeTPage;
     int fade;
 
+#ifdef TARGET_PC
+    /* The sweep in ticks (pc_substep.h), so the camera moves on every tick. */
+    SetSlashClearCamera(&gFighters[1],
+                        ((SLASH_CLEAR_CUTSCENE_FRAMES * PC_TICKS_PER_FRAME - PC_TICKS(gStateFrameTimer)) << 12) /
+                            (SLASH_CLEAR_CUTSCENE_FRAMES * PC_TICKS_PER_FRAME));
+#else
     SetSlashClearCamera(&gFighters[1],
                         ((SLASH_CLEAR_CUTSCENE_FRAMES - gStateFrameTimer) << 12) / SLASH_CLEAR_CUTSCENE_FRAMES);
+#endif
     UpdateSceneCameraAndWind();
-    UpdateCombatDistanceAndKoTimer();
+    if (PC_FIRST_SUBTICK)
+        UpdateCombatDistanceAndKoTimer();
 
     input.released = 0;
     input.pressed = 0;
@@ -715,6 +770,14 @@ void UpdateSlashClearCutsceneState(void)
         input.pressed = PADRup;
     }
     input.notHeld = (~input.held) & 0xffff;
+#ifdef TARGET_PC
+    /* The script is a pad's: the ticks before the frame's last hold the last frame's buttons. */
+    if (!PC_LAST_SUBTICK) {
+        input = gFighters[1].currentInput;
+        input.pressed = 0;
+        input.released = 0;
+    }
+#endif
     UpdateFighterFrame(1, &input);
 
     UpdateCombatCollisions();
@@ -729,7 +792,12 @@ void UpdateSlashClearCutsceneState(void)
     SetPolyF4(fadeQuad);
     SetSemiTrans(fadeQuad, 1);
     setXY4(fadeQuad, 0, 0, DISPLAY_WIDTH, 0, 0, DISPLAY_HEIGHT, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+#ifdef TARGET_PC
+    fade = (PC_TICKS(gStateFrameTimer) - SLASH_CLEAR_FADE_START_FRAME * PC_TICKS_PER_FRAME) * SLASH_CLEAR_FADE_STEP /
+        PC_TICKS_PER_FRAME;
+#else
     fade = (gStateFrameTimer - SLASH_CLEAR_FADE_START_FRAME) * SLASH_CLEAR_FADE_STEP;
+#endif
     if (fade < 0) {
         fade = 0;
     } else if (fade >= 256) {
@@ -740,6 +808,10 @@ void UpdateSlashClearCutsceneState(void)
     SetDrawTPage(fadeTPage, 0, 1, SLASH_CLEAR_FADE_TPAGE);
     AddPrim(gCurrentOt, fadeTPage);
 
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK)
+        return;
+#endif
     if (++gStateFrameTimer > SLASH_CLEAR_CUTSCENE_FRAMES) {
         StopCombatRumbleAndAudio();
         gMainMenuSelection = MAIN_MENU_ENTRY_VS;

@@ -112,6 +112,28 @@ SVECTOR gReplayFighterAngles[2];
 ReplayEffectMark gReplayEffectMarks[REPLAY_MARK_COUNT]; /* the image gives it 736 bytes: nothing reads the 96
                                                            after the 64 marks */
 
+#ifdef TARGET_PC
+/* The replay at the rate the bout was played (pc_substep.h). A frame's last tick records it in the ring in
+ * gSharedWorkBuffer, as on the console; the ticks before record here, by frame as there and by tick, so the
+ * replay shows each of them as it was. They record poses and places only: events are the frame's. */
+#define PC_REPLAY_TICKS 16
+static ReplayFrame sPcReplayTicks[REPLAY_RING_FRAMES][PC_REPLAY_TICKS - 1][2];
+static unsigned char sPcReplayFrameTicks[REPLAY_RING_FRAMES]; /* the ticks each frame was played in */
+
+/* What a tick of the replay shows of a frame (`slot` in the ring, `frame` its record): the record of the
+ * frame's tick at the same point of the frame, when it was played with ticks; else the frame's. */
+static ReplayFrame *PcReplayTickFrame(ReplayFrame *frame, int slot, int side)
+{
+    int recorded = sPcReplayFrameTicks[slot];
+    int tick = (g_pcSubtick + 1) * recorded / g_pcFrameTicks - 1;
+
+    if (tick < 0 || tick >= recorded - 1) {
+        return frame;
+    }
+    return &sPcReplayTicks[slot][tick][side];
+}
+#endif
+
 static void TransitionAfterMatchOrReplay(void)
 {
     if (gFighters[0].action == FIGHTER_ACTION_DEAD || gFighters[0].action == FIGHTER_ACTION_FATAL_KO ||
@@ -199,6 +221,18 @@ void RecordFighterReplayFrame(int side, int blendTargetFrame)
 
     fighter = &gFighters[side];
     frame = &((ReplayFrame *)gSharedWorkBuffer)[((unsigned char)gCombatFrameCounter << 1) + side];
+#ifdef TARGET_PC
+    /* The ticks before the frame's last record in the port's ring (the first still clears the frame's slot,
+     * below for one tick a frame); the record there never has an event. */
+    if (!PC_LAST_SUBTICK) {
+        if (PC_FIRST_SUBTICK && frame->combatEvent != 0) {
+            gReplayEffectMarks[frame->markIndex].inUse = 0;
+            frame->combatEvent = 0;
+        }
+        frame = &sPcReplayTicks[(unsigned char)gCombatFrameCounter][g_pcSubtick][side];
+    }
+    sPcReplayFrameTicks[(unsigned char)gCombatFrameCounter] = g_pcFrameTicks;
+#endif
     frame->x = fighter->position.vx;
     frame->y = fighter->position.vy;
     frame->z = fighter->position.vz;
@@ -342,6 +376,11 @@ void UpdateBattleReplay(void)
     for (side = 0; side < 2; side++) {
         frame = &((ReplayFrame *)gSharedWorkBuffer)[((gReplayStartFrame + gReplayPlayFrame) &
                                                      REPLAY_RING_MASK) * 2 + side];
+#ifdef TARGET_PC
+        if (!PC_LAST_SUBTICK) {
+            frame = PcReplayTickFrame(frame, (gReplayStartFrame + gReplayPlayFrame) & REPLAY_RING_MASK, side);
+        }
+#endif
         if (frame->placement->flags & MOTION_FLAG_FORWARD) {
             poseFrame = MOTION_FILE->animBaseFrames[frame->placement->animClipId - 1] + frame->animFrame;
         } else {
@@ -350,7 +389,9 @@ void UpdateBattleReplay(void)
         }
         DecodePoseFramePair(poseFrame, frame->blendTargetFrame, pose[0], pose[1], (PoseWork *)&COLLISION_SCRATCH->work);
         samePoseFrame = gReplayPrevPoseFrame[side] == poseFrame;
-        gReplayPrevPoseFrame[side] = poseFrame;
+        /* Events (a pose's sounds, a hit's effect) are the frame's, on its last tick. */
+        if (PC_LAST_SUBTICK)
+            gReplayPrevPoseFrame[side] = poseFrame;
         if (!(frame->packedHeading & REPLAY_LEFT_ARM_INTACT_BIT)) {
             ApplyDisabledLeftArmPose(pose[0]);
             ApplyDisabledLeftArmPose(pose[1]);
@@ -382,7 +423,7 @@ void UpdateBattleReplay(void)
                                     (PoseAngles *)&gReplayFighterAngles[side], 0, frame->shadowGroundY);
         UpdateFighterHitGeometry(&gFighters[side], COLLISION_SCRATCH->bodyPartPos[side],
                                  COLLISION_SCRATCH->weaponPoints[side]);
-        if (frame->combatEvent != 0) {
+        if (PC_LAST_SUBTICK && frame->combatEvent != 0) {
             mark = &gReplayEffectMarks[frame->markIndex];
             effectPos.vx = frame->x + mark->x;
             effectPos.vy = frame->y + mark->y;
@@ -394,7 +435,7 @@ void UpdateBattleReplay(void)
             }
             DispatchCombatEventEffect(side, frame->combatEvent, &effectPos);
         }
-        if (!samePoseFrame) {
+        if (PC_LAST_SUBTICK && !samePoseFrame) {
             floorY = QueryFloorHeight(gReplayFighterPos[side].vx, gReplayFighterPos[side].vy,
                                       gReplayFighterPos[side].vz);
             if (floorY == FLOOR_QUERY_MISS) {
@@ -411,10 +452,15 @@ void UpdateBattleReplay(void)
     DrawAllWeaponTrails();
     UpdateReplaySubWeapons();
     EndSceneFrame();
-    UpdateAmbientSounds();
+    if (PC_LAST_SUBTICK)
+        UpdateAmbientSounds();
     FlushQueuedSounds();
 #ifndef VERSION_JP
     DrawReplayOverlayText();
+#endif
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK)
+        return;
 #endif
     ++gReplayPlayFrame;
     if ((gCombatFrameCounter >= 0 &&
