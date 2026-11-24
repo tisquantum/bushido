@@ -12,6 +12,7 @@
 #include "gpu_code.h"
 #include "light_init.h"
 #include "rot_matrix.h"
+#include "widescreen.h"
 
 /* Rest-pose vertices of the two crossed sheets (4x simulation scale; .pad = 0 rigid pin,
  * -256 free dynamic vertex). */
@@ -204,8 +205,9 @@ int UpdateAndDrawSwayingFoliage(SwayingFoliageScratch *scratch)
     for (instance = 0, polyCount = 0; instance < SWAYING_FOLIAGE_COUNT; instance++, origin++) {
         scratch->offset.vx = origin->vx - scratch->cameraPos.vx;
         scratch->offset.vz = origin->vz - scratch->cameraPos.vz;
+        /* Outside +/-384 (33.75 deg) of the view, wider by as much as a widescreen picture is. */
         if ((unsigned int)(((ratan2(scratch->offset.vz, scratch->offset.vx) - scratch->cameraHeading + 0x400) &
-                            0xfff) - 384) < 3329)
+                            0xfff) - 384 - WIDE_VIEW_ANGLE) < 3329 - 2 * WIDE_VIEW_ANGLE)
             continue;
         scratch->offset.vy = origin->vy - scratch->cameraPos.vy;
         quadVerts = gMoatFoliageQuads[0];
