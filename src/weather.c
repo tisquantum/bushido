@@ -16,14 +16,7 @@
 #include "otz.h"
 #include "stage_id.h"
 #include "globals.h"
-
-#ifdef TARGET_PC
-/* Widescreen: the picture reaches this far past the console's left and right edges (psxport.h), and snow
- * falls across all of it. */
-#define SNOW_SCREEN_MARGIN g_pcScreenMargin
-#else
-#define SNOW_SCREEN_MARGIN 0
-#endif
+#include "widescreen.h"
 
 typedef struct {
     unsigned short tpage;
@@ -239,7 +232,7 @@ int UpdateAndDrawSnow(WeatherScratch *scratch)
             gte_stsxy(&scratch->screenPos[0]);
             screenX = scratch->screenPos[0].vx;
             screenY = scratch->screenPos[0].vy;
-            if ((u_int)(screenX + 8 + SNOW_SCREEN_MARGIN) < DISPLAY_WIDTH + 16 + 2 * SNOW_SCREEN_MARGIN &&
+            if ((u_int)(screenX + 8 + WIDE_SCREEN_MARGIN) < DISPLAY_WIDTH + 16 + 2 * WIDE_SCREEN_MARGIN &&
                 (u_int)(screenY + 4) < DISPLAY_HEIGHT + 8) {
                 gte_stszotz(&scratch->depth);
                 sizeIndex = 31 - (scratch->depth >> 8);
@@ -277,7 +270,7 @@ int UpdateAndDrawSnow(WeatherScratch *scratch)
                 for (wrapIndex = 0; wrapIndex < 3; wrapIndex++) {
                     screenX = scratch->screenPos[wrapIndex].vx;
                     screenY = scratch->screenPos[wrapIndex].vy;
-                    if ((u_int)(screenX + 8 + SNOW_SCREEN_MARGIN) < DISPLAY_WIDTH + 16 + 2 * SNOW_SCREEN_MARGIN &&
+                    if ((u_int)(screenX + 8 + WIDE_SCREEN_MARGIN) < DISPLAY_WIDTH + 16 + 2 * WIDE_SCREEN_MARGIN &&
                         (u_int)(screenY + 4) < DISPLAY_HEIGHT + 8) {
                         gte_stsz3(&scratch->screenZ[0], &scratch->screenZ[1], &scratch->screenZ[2]);
                         screenZ = scratch->screenZ[wrapIndex];
@@ -407,7 +400,17 @@ int UpdateAndDrawRain(WeatherScratch *scratch)
                         swapped = (scratch->prngSeed[0] >> 16) ^ (scratch->prngSeed[0] << 16);
                         scratch->prngSeed[0] = ((swapped << 1) | (swapped >> 31)) ^ ((swapped >> 29) & 1);
                         scratch->particle.y = -4096 - (scratch->prngSeed[1] & 0x3ff);
+#ifdef TARGET_PC
+                        {
+                            /* Drops start within 45 degrees of the view, which a 4:3 picture's 22.5 leaves
+                             * room for; a wider one than that spreads them across its own width. */
+                            int extra = WIDE_VIEW_ANGLE > 0x100 ? WIDE_VIEW_ANGLE - 0x100 : 0;
+                            angleOrDrop = scratch->cameraHeading - 0x200 - extra +
+                                          (int)((scratch->prngSeed[0] & 0x3ff) * (0x400 + 2 * extra) >> 10);
+                        }
+#else
                         angleOrDrop = scratch->cameraHeading - 0x200 + (scratch->prngSeed[0] & 0x3ff);
+#endif
                         spawnRadius = (scratch->prngSeed[1] >> 16) & 0x3fff;
                         scratch->particle.x = rsin(angleOrDrop) * spawnRadius / 4096 - (scratch->windX << 2);
                         scratch->particle.z = -rcos(angleOrDrop) * spawnRadius / 4096 - (scratch->windZ << 2);
@@ -493,7 +496,8 @@ int UpdateAndDrawRain(WeatherScratch *scratch)
                 gte_stsxy(&scratch->screenPos[0]);
                 screenX = scratch->screenPos[0].vx;
                 screenY = scratch->screenPos[0].vy;
-                if ((u_int)(screenX + 32) < DISPLAY_WIDTH + 64 && screenY < DISPLAY_HEIGHT + 32) {
+                if ((u_int)(screenX + 32 + WIDE_SCREEN_MARGIN) < DISPLAY_WIDTH + 64 + 2 * WIDE_SCREEN_MARGIN &&
+                    screenY < DISPLAY_HEIGHT + 32) {
                     gte_stszotz(&scratch->depth);
                     *(u_long *)&splashPoly->x0 = *(u_long *)&scratch->screenPos[0];
                     scratch->verts[1].x = scratch->particle.x + 100;
@@ -537,7 +541,8 @@ int UpdateAndDrawRain(WeatherScratch *scratch)
             gte_stsxy(&scratch->screenPos[0]);
             screenX = scratch->screenPos[0].vx;
             screenY = scratch->screenPos[0].vy;
-            if ((u_int)(screenX + 64) < DISPLAY_WIDTH + 128 && screenY < DISPLAY_HEIGHT + 16) {
+            if ((u_int)(screenX + 64 + WIDE_SCREEN_MARGIN) < DISPLAY_WIDTH + 128 + 2 * WIDE_SCREEN_MARGIN &&
+                screenY < DISPLAY_HEIGHT + 16) {
                 gte_stszotz(&scratch->depth);
                 scratch->verts[0].y = scratch->particle.y + 720;
                 floorY = work->settings.floorHeightAt(scratch->particle.x + scratch->cameraPos.vx,

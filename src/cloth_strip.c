@@ -8,6 +8,7 @@
 #include <rand.h>
 
 #include "substep.h"
+#include "widescreen.h"
 #include "cloth.h"
 #include "cloth_strip.h"
 #include "gpu_code.h"
@@ -263,9 +264,10 @@ int UpdateAndDrawStageClothStrips(StageClothRenderContext *ctx)
     for (origin = 0; origin < STAGE_CLOTH_STRIP_COUNT; origin++) {
         ctx->work.draw.offset.vx = gStageClothOrigins[origin].vx - ctx->eye.vx;
         ctx->work.draw.offset.vz = gStageClothOrigins[origin].vz - ctx->eye.vz;
-        /* Frustum cull outside +/-384 (+/-33.75 deg) of camera yaw and beyond max XZ distance. */
+        /* Frustum cull outside +/-384 (+/-33.75 deg) of camera yaw, wider by as much as a widescreen picture
+         * is, and beyond max XZ distance. */
         if ((unsigned int)(((ratan2(ctx->work.draw.offset.vz, ctx->work.draw.offset.vx) - ctx->yaw + 0x400) &
-                            0xfff) - 384) < 3329)
+                            0xfff) - 384 - WIDE_VIEW_ANGLE) < 3329 - 2 * WIDE_VIEW_ANGLE)
             continue;
         dx = ctx->work.draw.offset.vx >> 4;
         dz = ctx->work.draw.offset.vz >> 4;
