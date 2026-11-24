@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <libgte.h>
 #include <libgpu.h>
+#include "substep.h"
 #include "combat_state.h"
 #include <inline_o.h>
 #include "billboard.h"
@@ -172,7 +173,7 @@ int UpdateAndDrawBillboardEffect(BillboardEffectWork *work, BillboardEffectSlot 
     prim->clut = desc->texture->clut;
     gte_stotz(&depths[primCount++]);
     prim++;
-    if (++slot->age >= desc->frameCount) {
+    if (PC_LAST_SUBTICK && ++slot->age >= desc->frameCount) {
         slot->kind = BILLBOARD_EFFECT_FREE;
     }
     *nextPrim = prim;
@@ -513,7 +514,7 @@ static int UpdateDelayedAmbientTrigger(BillboardEffectWork *work, BillboardEffec
 {
     short cycle;
 
-    if (++slot->age == 2) {
+    if (PC_LAST_SUBTICK && ++slot->age == 2) {
         cycle = gAmbientTriggerCycle + 1;
         slot->kind = BILLBOARD_EFFECT_FREE;
         gAmbientTriggerCycle = cycle;

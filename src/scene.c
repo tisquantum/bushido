@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <libgte.h>
 
+#include "substep.h"
 #include "attached_part.h"
 #include "billboard_driver.h"
 #include "display_list.h"
@@ -80,7 +81,8 @@ void BeginSceneFrame(VECTOR *target, SVECTOR *rotation, int distance)
     displacement.vz = -distance;
     gRenderQueueCursor = gRenderQueue;
     inverseRotation.vx = -rotation->vx;
-    ++gSceneFrameCounter;
+    if (PC_FIRST_SUBTICK)
+        ++gSceneFrameCounter;
     inverseRotation.vy = -rotation->vy;
     inverseRotation.vz = -rotation->vz;
     gRotMatrixBuilders[SCENE_ROT_ORDER_FAST](&inverseRotation, &rotationMatrix);
@@ -116,6 +118,10 @@ void EndSceneFrame(void)
     UpdateAttachedPartPool();
     ApplyPointLightToTargets();
     SubmitSceneDisplayList();
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK)
+        PcRestoreFighterCloth();
+#endif
     bytesUsed = (char *)gPacketCursor - (char *)GetGpuPacketBuffer(gFrameCounter & 1);
     gPacketBufferUsed = bytesUsed;
     if (gPacketBufferPeak < bytesUsed) {

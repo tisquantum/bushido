@@ -524,7 +524,23 @@ void CullAndEnqueueStageScene(void)
     gte_rtv0();
     gte_stlvnl(&heading);
     angle = ratan2(heading.vx, heading.vz);
+#ifdef TARGET_PC
+    {
+        /* A wider screen sees more to each side than the masks, made for 4:3, let through: the masks of
+         * the neighbouring headings are added, as many as the screen's extra width needs. */
+        static int widened[32];
+        int heading = (angle >> STAGE_VIS_HEADING_SHIFT) & STAGE_VIS_HEADING_MASK, k, j;
+        for (j = 0; j < 32; j++) {
+            widened[j] = 0;
+            for (k = -g_pcWideHeadings; k <= g_pcWideHeadings; k++) {
+                widened[j] |= gStageVisibilityMask[(heading + k) & STAGE_VIS_HEADING_MASK][j];
+            }
+        }
+        maskRow = &widened[1];
+    }
+#else
     maskRow = &gStageVisibilityMask[(angle >> STAGE_VIS_HEADING_SHIFT) & STAGE_VIS_HEADING_MASK][1];
+#endif
     pending = gStagePendingObjects;
     gCameraHeadingAngle = angle;
     baseColumn -= STAGE_GRID_HALF_DIM;

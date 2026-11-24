@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <libgte.h>
 #include <rand.h>
+#include "substep.h"
 #include "scene_node.h"
 #include "cloth.h"
 #include "model_arena.h"
@@ -282,7 +283,7 @@ int gFighterClothActive[FIGHTER_CLOTH_SLOT_COUNT] = { 0, 0, 0 };
 
 void ResetClothWindWithJitter(void)
 {
-    int jitter = rand() & 15;
+    int jitter = PC_FIRST_SUBTICK ? rand() & 15 : 8;
     int angle = gClothWindBaseAngle - 8;
 
     gClothWindTargetMagnitudes[CLOTH_WIND_SLOT_FIGHTER_0] = gClothWindTargetMagnitudes[CLOTH_WIND_SLOT_FIGHTER_1] =
@@ -298,8 +299,77 @@ void SetClothWindTarget(int magnitude, int angle, int windSlot)
     gClothWindTargetAngles[windSlot] = angle;
 }
 
+#ifdef TARGET_PC
+/* Between a frame's cloth steps the fighters move on, tick by tick. For a tick's picture the cloth is carried
+ * rigidly with its part (from where the part was at the last step to where it is now) and put back once the
+ * scene is drawn: what is simulated is the console's, once a frame. */
+#pragma clang section bss = ".bss$render" data = ".data$render"
+#define PC_CLOTH_CARRY_MAX 4096
+static int sPcClothSaved[PC_CLOTH_CARRY_MAX][3];
+static int sPcClothSavedCount;
+#pragma clang section bss = ".bss$sim" data = ".data$sim"
+
+static void PcCarryFighterCloth(void)
+{
+    int i, p, k, n = 0;
+    for (i = 0; i < gActiveFighterClothCount; i++) {
+        ClothItem *item = &gFighterClothItems[i];
+        ClothModel *model = &gClothModels[item->modelIndex];
+        MATRIX *was = &model->prevTransform, *now = item->transform;
+        if (model->sourceVertices == 0 || (item->flags & CLOTH_ITEM_FLAG_RESET) ||
+            n + model->pointCount > PC_CLOTH_CARRY_MAX) {
+            continue;
+        }
+        for (p = 0; p < model->pointCount; p++, n++) {
+            ClothPoint *point = &model->points[p];
+            long long d[3], local[3];
+            int *pos = &point->x;
+            sPcClothSaved[n][0] = point->x;
+            sPcClothSaved[n][1] = point->y;
+            sPcClothSaved[n][2] = point->z;
+            for (k = 0; k < 3; k++) {
+                d[k] = (long long)pos[k] - ((long long)was->t[k] << 7);
+            }
+            for (k = 0; k < 3; k++) { /* the transpose undoes the rotation */
+                local[k] = (was->m[0][k] * d[0] + was->m[1][k] * d[1] + was->m[2][k] * d[2]) >> 12;
+            }
+            for (k = 0; k < 3; k++) {
+                pos[k] = (int)(((now->m[k][0] * local[0] + now->m[k][1] * local[1] + now->m[k][2] * local[2]) >> 12) +
+                               ((long long)now->t[k] << 7));
+            }
+        }
+    }
+    sPcClothSavedCount = n;
+}
+
+void PcRestoreFighterCloth(void)
+{
+    int i, p, n = 0;
+    for (i = 0; i < gActiveFighterClothCount && n < sPcClothSavedCount; i++) {
+        ClothItem *item = &gFighterClothItems[i];
+        ClothModel *model = &gClothModels[item->modelIndex];
+        if (model->sourceVertices == 0 || (item->flags & CLOTH_ITEM_FLAG_RESET) ||
+            n + model->pointCount > PC_CLOTH_CARRY_MAX) {
+            continue;
+        }
+        for (p = 0; p < model->pointCount; p++, n++) {
+            model->points[p].x = sPcClothSaved[n][0];
+            model->points[p].y = sPcClothSaved[n][1];
+            model->points[p].z = sPcClothSaved[n][2];
+        }
+    }
+    sPcClothSavedCount = 0;
+}
+#endif
+
 void UpdateAllFighterCloth(void)
 {
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK) {
+        PcCarryFighterCloth();
+        return;
+    }
+#endif
     StepClothWindSlot(gClothWindTargetMagnitudes[CLOTH_WIND_SLOT_FIGHTER_0],
                       gClothWindTargetAngles[CLOTH_WIND_SLOT_FIGHTER_0], CLOTH_WIND_SLOT_FIGHTER_0);
     StepClothWindSlot(gClothWindTargetMagnitudes[CLOTH_WIND_SLOT_FIGHTER_1],
@@ -622,6 +692,12 @@ void SetSlotClothFloorY(int slot, int floorY)
     int i;
 
     for (i = 0; i < gFighterClothNodeCounts[slot]; i++) {
+#ifdef TARGET_PC
+        /* After a match the character select's fighters can list cloth without colliders: the console writes
+         * through the null pointer into low memory, unnoticed. */
+        if (gFighterClothNodes[slot][i]->clothColliders == 0)
+            continue;
+#endif
         gFighterClothNodes[slot][i]->clothColliders->input.floorY = floorY;
     }
 }

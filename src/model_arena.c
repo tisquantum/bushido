@@ -46,11 +46,9 @@ static int gArenaGroupAllocSlots[ARENA_GROUP_COUNT];
 static unsigned int *gArenaSlotBases[ARENA_GROUP_COUNT];
 static unsigned int gArenaSlotSizes[ARENA_GROUP_COUNT];
 static int gArenaGroupResourceIds[ARENA_GROUP_COUNT];
-static unsigned int gModelArena[41984];
-static char gAuxGpuPacketBuffers[65536];
 /* One region used three ways: the aux resource buffer, the two GPU packet buffers and
  * the effect textures' load area. */
-static union AuxRegion {
+union AuxRegion {
     char resourceBuffer[AUX_RESOURCE_BUFFER_SIZE];
     struct {
         char head[AUX_RESOURCE_BUFFER_SIZE - 2 * GPU_PACKET_BUFFER_SIZE];
@@ -60,9 +58,27 @@ static union AuxRegion {
         char head[AUX_RESOURCE_BUFFER_SIZE - COMMON_EFFECT_TEXTURE_WORDS * 4];
         unsigned int words[COMMON_EFFECT_TEXTURE_WORDS]; /* last word holds MODEL_ARENA_CANARY */
     } effectTextures;
-} gAuxRegion;
+};
+#ifdef TARGET_PC
+/* The console's link lays the arena and the buffers after it end to end, and what loads into the arena
+ * relies on it; the port's compiler orders statics as it likes, so it keeps them in one record. */
+static struct {
+    unsigned int modelArena[41984];
+    char auxGpuPacketBuffers[65536];
+    union AuxRegion auxRegion;
+    unsigned char modelArenaUnused[1336];
+} sArenaLayout;
+#define gModelArena          sArenaLayout.modelArena
+#define gAuxGpuPacketBuffers sArenaLayout.auxGpuPacketBuffers
+#define gAuxRegion           sArenaLayout.auxRegion
+#define gModelArenaUnused    sArenaLayout.modelArenaUnused
+#else
+static unsigned int gModelArena[41984];
+static char gAuxGpuPacketBuffers[65536];
+static union AuxRegion gAuxRegion;
 /* 1,336 bytes; nothing reads or writes them. */
 static unsigned char gModelArenaUnused[1336];
+#endif
 
 void ResetModelArena(void)
 {

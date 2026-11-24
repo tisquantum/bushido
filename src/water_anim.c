@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <libgte.h>
 #include <libgpu.h>
+#include "substep.h"
 #include "display_buffer.h"
 #include "effect.h"
 #include "effect_slot.h"
@@ -137,7 +138,7 @@ void UpdateWaterTextureScroll(int index)
         width >>= 1;
         height >>= 1;
     }
-    gWaterScrollOffset += desc->step;
+    gWaterScrollOffset += PC_SHARE(desc->step);
     if (gWaterScrollOffset >= desc->height) {
         gWaterScrollOffset %= desc->height;
     }
@@ -151,7 +152,7 @@ void UpdateStage1WaterfallSplashes(void)
     MATRIX **joints;
     VECTOR sprayDir;
 
-    if ((gSceneFrameCounter & 3) != 0)
+    if ((gSceneFrameCounter & 3) != 0 || !PC_LAST_SUBTICK)
         return;
 
     sprayDir.vx = 0;

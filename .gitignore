@@ -1,0 +1,3 @@
+game_files/
+# Dojo, the PC port, is its own repository (github.com/tisquantum/dojo), often checked out here.
+port/

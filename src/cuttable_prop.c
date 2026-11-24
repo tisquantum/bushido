@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <libgte.h>
 
+#include "substep.h"
 #include "light.h"
 #include "scene_node.h"
 #include "angle.h"
@@ -116,7 +117,8 @@ void UpdateCuttableProps(void)
         prop = &gCuttableProps[i];
         frame = prop->param.propFrame;
         if (frame >= 0) {
-            if (frame < *sCuttablePropKeyframes) {
+            if (!PC_LAST_SUBTICK) {
+            } else if (frame < *sCuttablePropKeyframes) {
                 key = &sCuttablePropKeyframes[1 + frame * CUTTABLE_PROP_KEYFRAME_STRIDE];
                 step.vx = *key++;
                 step.vy = *key++;

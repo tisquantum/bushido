@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <libgte.h>
 
+#include "substep.h"
 #include "attached_part.h"
 #include "effect.h"
 #include "effect_slot.h"
@@ -63,6 +64,14 @@ void UpdateGunMuzzleFlash(struct SceneNode *node)
         FreeAttachedPartSlot(node);
         return;
     }
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK) {
+        if (node->meshIndex >= MUZZLE_FLASH_FIRST_MESH) {
+            *gRenderQueueCursor++ = node;
+        }
+        return;
+    }
+#endif
     switch (++node->meshIndex) {
     case MUZZLE_FLASH_FIRST_MESH:
         node->matrixState = SCENE_MATRIX_DIRTY;

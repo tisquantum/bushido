@@ -30,6 +30,9 @@
 #include "load_area.h"
 #include "globals.h"
 #include "splash.h"
+#ifdef TARGET_PC
+#include "pc_substep.h"
+#endif
 
 void SetBackgroundClear(int clearBackground, int red, int green, int blue)
 {
@@ -219,6 +222,32 @@ void main(void)
     gGameState = GAME_STATE_BOOT_VERSION;
     gFrameCounter = 0;
     for (;;) {
+#ifdef TARGET_PC
+        /* The frame's ticks before its last (pc_substep.h): a state that substeps runs and is shown in each.
+         * A frame that begins in any other state is the console's frame below alone, timed as on the console. */
+        int tick;
+        g_pcFrameTicks = PcStateSubsteps(gGameState) ? g_pcTicksPerFrame : 1;
+        for (tick = 0; tick < g_pcFrameTicks - 1; tick++) {
+            g_pcSubtick = tick;
+            if (PcStateSubsteps(gGameState)) {
+                PollControllers();
+                displayBuffer = &db[gFrameCounter & 1];
+                ClearOTagR(displayBuffer->ot, DISPLAY_OT_LEN);
+                gCurrentOt = displayBuffer->ot;
+                gGameStateHandlers[gGameState]();
+                KernelSubtickEnd();
+                if (gDisplayPresentEnabled != 0) {
+                    PutDispEnv(&displayBuffer->disp);
+                    PutDrawEnv(&displayBuffer->draw);
+                    DrawOTag(&displayBuffer->ot[DISPLAY_OT_LEN - 1]);
+                    gFrameCounter++;
+                }
+            } else {
+                KernelSubtickEnd();
+            }
+        }
+        g_pcSubtick = g_pcFrameTicks - 1;
+#endif
         PollControllers();
         displayBuffer = &db[gFrameCounter & 1];
         ClearOTagR(displayBuffer->ot, DISPLAY_OT_LEN);
