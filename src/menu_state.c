@@ -6,6 +6,7 @@
 #include <libgpu.h>
 #include <rand.h>
 
+#include "substep.h"
 #include "fighter.h"
 #include "game_state.h"
 #include "link.h"
@@ -302,6 +303,12 @@ unsigned char gPracticeStageSelectTable[4] = {
     STAGE_ID_MEIKYOKAN, STAGE_ID_CHERRY_BLOSSOM_GROVE, STAGE_ID_EXECUTIONERS_COVE, 0
 };
 
+#ifdef TARGET_PC
+#define CHAR_SELECT_BACK_HOLD_FRAMES 30 /* one second */
+int NetplayActive(void);
+static short sCancelHeldFrames;
+#endif
+
 void UpdateCharacterSelect(void)
 {
     int i;
@@ -440,6 +447,21 @@ void UpdateCharacterSelect(void)
             gStoryChallengerTimer = 1;
         }
     }
+#ifdef TARGET_PC
+    /* The console has no way back from character select: holding cancel on either pad returns to the main
+     * menu. A press still steps back a choice as before. Not in Link mode, a Story challenger bout, or an
+     * online match, which have their own ways out. */
+    if (gGameState == GAME_STATE_UPDATE_CHARACTER_SELECT && gPlayMode != PLAY_MODE_LINK &&
+        gStoryChallengerActive == 0 && gStoryChallengerTimer == 0 && !NetplayActive() &&
+        (gPadState.held & BOTH_PADS_CANCEL)) {
+        if (++sCancelHeldFrames >= CHAR_SELECT_BACK_HOLD_FRAMES)
+            gGameState = GAME_STATE_INIT_MAIN_MENU;
+    } else {
+        sCancelHeldFrames = 0;
+    }
+    if (gGameState != GAME_STATE_UPDATE_CHARACTER_SELECT)
+        sCancelHeldFrames = 0;
+#endif
     FlushQueuedSounds();
     if (gGameState != GAME_STATE_UPDATE_CHARACTER_SELECT) {
         StopAndWaitCdIdle();
@@ -755,7 +777,8 @@ void UpdateDemoBattle(void)
     WorldVector *p2CameraTarget = &gFighters[1].cameraTargetPos;
     struct PadInputFrame input;
 
-    ++gStateFrameTimer;
+    if (PC_LAST_SUBTICK)
+        ++gStateFrameTimer;
     if ((gFighters[0].action == FIGHTER_ACTION_NEUTRAL && (gFighters[0].animInfo->flags & ANIM_FLAG_RUN)) ||
         (gFighters[1].action == FIGHTER_ACTION_NEUTRAL && (gFighters[1].animInfo->flags & ANIM_FLAG_RUN))) {
         isRunning = 1;
@@ -763,20 +786,26 @@ void UpdateDemoBattle(void)
     UpdateBattleCamera(BATTLE_CAMERA_LIVE, (VECTOR *)p1CameraTarget,
                        (VECTOR *)p2CameraTarget, 0, isRunning, gBladeLockState);
     UpdateSceneCameraAndWind();
-    UpdateCombatDistanceAndKoTimer();
+    if (PC_FIRST_SUBTICK)
+        UpdateCombatDistanceAndKoTimer();
     BuildFighterInput(0, &input);
     UpdateFighterFrame(0, &input);
     BuildFighterInput(1, &input);
     UpdateFighterFrame(1, &input);
     UpdateCombatCollisions();
     UpdateAndDrawSubWeapons();
-    ++gCombatFrameCounter;
+    if (PC_LAST_SUBTICK)
+        ++gCombatFrameCounter;
     TraceCameraSightlineTo(gFighters[0].position.vx, gFighters[0].position.vz);
     TraceCameraSightlineTo(gFighters[1].position.vx, gFighters[1].position.vz);
     EndSceneFrame();
 #ifndef VERSION_JP
     FlushQueuedSounds();
     DrawDemoOverlayText();
+#endif
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK)
+        return;
 #endif
     if (gPostKoTimer >= DEMO_POST_KO_LIMIT) {
         StopAndWaitCdIdle();

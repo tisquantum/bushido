@@ -8,6 +8,7 @@
 #include <memory.h>
 #include <inline_o.h>
 
+#include "substep.h"
 #include "angle.h"
 #include "combat_hit.h"
 #include "display_buffer.h"
@@ -69,6 +70,34 @@ POLY_F4 gSubWeaponTrailF4[2][SUB_WEAPON_MAX];
 DR_TPAGE gSubWeaponTrailTPage[2][SUB_WEAPON_MAX];
 unsigned char gSubWeaponModelOwner[16];
 
+#ifdef TARGET_PC
+/* A trail runs from where its sub-weapon was a frame before. prevPosition is where its hits were last tested,
+ * which is a frame before only on a frame's last tick (pc_substep.h), so the port keeps where each slot was
+ * after each tick of the last frame and draws from that. With one tick a frame it is prevPosition. */
+static WorldVector sPcTickPositions[SUB_WEAPON_MAX][16];
+static WorldVector sPcTrailTails[SUB_WEAPON_MAX];
+
+/* A tick's move is done: the tail is where the same tick of the last frame left the slot. */
+static void PcTrackTrail(int slotIndex, SubWeaponSlot *slot)
+{
+    sPcTrailTails[slotIndex] = sPcTickPositions[slotIndex][g_pcSubtick];
+    sPcTickPositions[slotIndex][g_pcSubtick] = slot->motion.position;
+}
+
+/* The slot was placed (thrown, or restored from the history): it has no trail yet. */
+static void PcResetTrail(int slotIndex, SubWeaponSlot *slot)
+{
+    int i;
+    for (i = 0; i < 16; i++) {
+        sPcTickPositions[slotIndex][i] = slot->motion.position;
+    }
+    sPcTrailTails[slotIndex] = slot->motion.position;
+}
+#define TRAIL_TAIL(slotIndex, slot) sPcTrailTails[slotIndex]
+#else
+#define TRAIL_TAIL(slotIndex, slot) (slot)->motion.prevPosition
+#endif
+
 static void DrawSubWeaponTrail(int slotIndex, SubWeaponSlot *slot, int trailRgb)
 {
     SubWeaponTrailScratch *scratch;
@@ -85,8 +114,8 @@ static void DrawSubWeaponTrail(int slotIndex, SubWeaponSlot *slot, int trailRgb)
     u_long halfDepth;
     u_long depthShift;
 
-    dx = slot->motion.prevPosition.x - slot->motion.position.x;
-    dz = slot->motion.prevPosition.z - slot->motion.position.z;
+    dx = TRAIL_TAIL(slotIndex, slot).x - slot->motion.position.x;
+    dz = TRAIL_TAIL(slotIndex, slot).z - slot->motion.position.z;
     trailWidth = gSubWeaponParams[slot->id].trailWidth;
     scratch = (SubWeaponTrailScratch *)getScratchAddr(0);
     if (dx * dx + dz * dz < trailWidth * trailWidth / 4) {
@@ -104,9 +133,9 @@ static void DrawSubWeaponTrail(int slotIndex, SubWeaponSlot *slot, int trailRgb)
     scratch->verts[1].vx = slot->motion.position.x - offsetX - offsetZ - scratch->cameraOrigin.vx;
     scratch->verts[1].vy = slot->motion.position.y - scratch->cameraOrigin.vy;
     scratch->verts[1].vz = slot->motion.position.z - offsetZ + offsetX - scratch->cameraOrigin.vz;
-    scratch->verts[2].vx = slot->motion.prevPosition.x + offsetX + dx - scratch->cameraOrigin.vx;
-    scratch->verts[2].vy = slot->motion.prevPosition.y - scratch->cameraOrigin.vy;
-    scratch->verts[2].vz = slot->motion.prevPosition.z + offsetZ + dz - scratch->cameraOrigin.vz;
+    scratch->verts[2].vx = TRAIL_TAIL(slotIndex, slot).x + offsetX + dx - scratch->cameraOrigin.vx;
+    scratch->verts[2].vy = TRAIL_TAIL(slotIndex, slot).y - scratch->cameraOrigin.vy;
+    scratch->verts[2].vz = TRAIL_TAIL(slotIndex, slot).z + offsetZ + dz - scratch->cameraOrigin.vz;
     bufferIndex = gFrameCounter & 1;
     trailQuad = &gSubWeaponTrailG4[bufferIndex][slotIndex];
     tipQuad = &gSubWeaponTrailF4[bufferIndex][slotIndex];
@@ -120,9 +149,9 @@ static void DrawSubWeaponTrail(int slotIndex, SubWeaponSlot *slot, int trailRgb)
     gte_ldv3(&scratch->verts[0], &scratch->verts[1], &scratch->verts[2]);
     gte_rtpt();
     SetPolyG4(trailQuad);
-    scratch->verts[3].vx = slot->motion.prevPosition.x - offsetX + dx - scratch->cameraOrigin.vx;
-    scratch->verts[3].vy = slot->motion.prevPosition.y - scratch->cameraOrigin.vy;
-    scratch->verts[3].vz = slot->motion.prevPosition.z - offsetZ + dz - scratch->cameraOrigin.vz;
+    scratch->verts[3].vx = TRAIL_TAIL(slotIndex, slot).x - offsetX + dx - scratch->cameraOrigin.vx;
+    scratch->verts[3].vy = TRAIL_TAIL(slotIndex, slot).y - scratch->cameraOrigin.vy;
+    scratch->verts[3].vz = TRAIL_TAIL(slotIndex, slot).z - offsetZ + dz - scratch->cameraOrigin.vz;
     gte_stsxy3(&scratch->screenXY[0], &scratch->screenXY[1], &trailQuad->x2);
     *(long *)&trailQuad->x0 = scratch->screenXY[0];
     *(long *)&trailQuad->x1 = scratch->screenXY[1];
@@ -234,6 +263,9 @@ static void RestoreSubWeaponFromHistory(int slotIndex, SubWeaponHistoryEntry *en
     slot->motion.position.y = entry->y;
     slot->motion.position.z = entry->z;
     slot->motion.prevPosition = slot->motion.position;
+#ifdef TARGET_PC
+    PcResetTrail(slotIndex, slot);
+#endif
 
     slot->motion.velocityX = entry->velocity[0];
     slot->motion.velocityY = entry->velocity[1];
@@ -297,27 +329,27 @@ static void StepReplaySubWeapon(int slotIndex)
         if (slot->motion.isMoving == 0) {
             break;
         }
-        slot->motion.angleY += slot->motion.spinY;
+        slot->motion.angleY += PC_SHARE(slot->motion.spinY);
 
         if (slot->id >= SUB_WEAPON_SURFACE_BASE) {
-            slot->motion.velocityX = slot->motion.velocityX * 15 / 16;
-            slot->motion.velocityZ = slot->motion.velocityZ * 15 / 16;
-            slot->motion.velocityY += 7;
+            slot->motion.velocityX = PC_DECAY_EX(slot->motion.velocityX * 15 / 16, slot->motion.velocityX, 0xf00);
+            slot->motion.velocityZ = PC_DECAY_EX(slot->motion.velocityZ * 15 / 16, slot->motion.velocityZ, 0xf00);
+            slot->motion.velocityY += PC_SHARE(7);
         } else if (gCurrentStageId == STAGE_ID_DOZAEMON_MOAT && slot->motion.position.y > MOAT_WATER_SURFACE_Y) {
-            slot->motion.velocityX = slot->motion.velocityX * 3 / 4;
-            slot->motion.velocityZ = slot->motion.velocityZ * 3 / 4;
-            slot->motion.velocityY += 4;
+            slot->motion.velocityX = PC_DECAY_EX(slot->motion.velocityX * 3 / 4, slot->motion.velocityX, 0xc00);
+            slot->motion.velocityZ = PC_DECAY_EX(slot->motion.velocityZ * 3 / 4, slot->motion.velocityZ, 0xc00);
+            slot->motion.velocityY += PC_SHARE(4);
             if (slot->motion.velocityY > 32) {
                 slot->motion.velocityY = 32;
             }
         } else {
-            slot->motion.velocityY += 8;
+            slot->motion.velocityY += PC_SHARE(8);
         }
 
-        slot->motion.spinY = slot->motion.spinY * 7 / 8;
-        next[0] = slot->motion.position.x + slot->motion.velocityX;
-        next[1] = slot->motion.position.y + slot->motion.velocityY;
-        next[2] = slot->motion.position.z + slot->motion.velocityZ;
+        slot->motion.spinY = PC_DECAY_EX(slot->motion.spinY * 7 / 8, slot->motion.spinY, 0xe00);
+        next[0] = slot->motion.position.x + PC_SHARE(slot->motion.velocityX);
+        next[1] = slot->motion.position.y + PC_SHARE(slot->motion.velocityY);
+        next[2] = slot->motion.position.z + PC_SHARE(slot->motion.velocityZ);
         floorHeight = QueryFloorHeight(next[0], next[1], next[2]);
         surfaceNormal = GetLastFloorNormal();
         if ((GetLastFloorAttr() & FLOOR_ATTR_NO_IMPACT) != 0) {
@@ -329,8 +361,8 @@ static void StepReplaySubWeapon(int slotIndex)
             slot->motion.velocityX = -slot->motion.velocityX / 8;
             slot->motion.velocityZ = -slot->motion.velocityZ / 8;
             slot->motion.velocityY = slot->motion.velocityY / 4;
-            slot->motion.position.x += slot->motion.velocityX;
-            slot->motion.position.z += slot->motion.velocityZ;
+            slot->motion.position.x += PC_SHARE(slot->motion.velocityX);
+            slot->motion.position.z += PC_SHARE(slot->motion.velocityZ);
             if (slot->id >= SUB_WEAPON_SURFACE_BASE) {
                 slot->hitState = SUB_WEAPON_HISTORY_CLEARED;
             }
@@ -344,7 +376,7 @@ static void StepReplaySubWeapon(int slotIndex)
                 slot->motion.velocityY = -slot->motion.velocityY / 4;
                 slot->motion.velocityX = slot->motion.velocityX * 3 / 4;
                 slot->motion.velocityZ = slot->motion.velocityZ * 3 / 4;
-                slot->motion.position.y += slot->motion.velocityY;
+                slot->motion.position.y += PC_SHARE(slot->motion.velocityY);
                 if (slot->id >= SUB_WEAPON_SURFACE_BASE) {
                     slot->hitState = SUB_WEAPON_HISTORY_CLEARED;
                 }
@@ -362,6 +394,9 @@ static void StepReplaySubWeapon(int slotIndex)
         }
         break;
     }
+#ifdef TARGET_PC
+    PcTrackTrail(slotIndex, slot);
+#endif
 }
 
 void UpdateReplaySubWeapons(void)
@@ -371,7 +406,7 @@ void UpdateReplaySubWeapons(void)
 
     for (slotIndex = 0; slotIndex < SUB_WEAPON_MAX; ++slotIndex) {
         entry = &gSubWeaponHistory[slotIndex][gSubWeaponHistoryIndex[slotIndex]];
-        if (gReplayPlaybackFrame == entry->frame) {
+        if (PC_LAST_SUBTICK && gReplayPlaybackFrame == entry->frame) {
             RestoreSubWeaponFromHistory(slotIndex, entry);
             gSubWeaponHistoryIndex[slotIndex] = (gSubWeaponHistoryIndex[slotIndex] + 1) & SUB_WEAPON_HISTORY_MASK;
         } else {
@@ -510,6 +545,9 @@ static void SpawnSubWeapon(Fighter *fighter, int subWeaponId)
     slot->motion.position.y += slot->motion.velocityY / 2;
     slot->motion.position.z += slot->motion.velocityZ / 2;
     slot->motion.prevPosition = slot->motion.position;
+#ifdef TARGET_PC
+    PcResetTrail(slotIndex, slot);
+#endif
 
     slot->motion.angleX = 0;
     slot->motion.angleY = 0;
@@ -624,34 +662,44 @@ void UpdateAndDrawSubWeapons(void)
     int surfaceY;
     SVECTOR *surfaceNormal;
     int advanced;
+#ifdef TARGET_PC
+    int tickStartY;
+#endif
 
     slot = gSubWeaponSlots;
     slotIndex = 0;
     do {
         if (slot->id != SUB_WEAPON_NONE) {
-            slot->motion.prevPosition = slot->motion.position;
+            /* Hits are tested on a frame's last tick, along the path since the last frame's test. */
+            if (PC_LAST_SUBTICK)
+                slot->motion.prevPosition = slot->motion.position;
+#ifdef TARGET_PC
+            tickStartY = slot->motion.position.y;
+#endif
             if (slot->motion.isMoving != 0) {
-                slot->motion.angleY += slot->motion.spinY;
+                slot->motion.angleY += PC_SHARE(slot->motion.spinY);
                 if (slot->id >= SUB_WEAPON_SURFACE_BASE) {
-                    slot->motion.velocityX = slot->motion.velocityX * 15 / 16;
-                    slot->motion.velocityZ = slot->motion.velocityZ * 15 / 16;
-                    slot->motion.velocityY += 7;
+                    slot->motion.velocityX =
+                        PC_DECAY_EX(slot->motion.velocityX * 15 / 16, slot->motion.velocityX, 0xf00);
+                    slot->motion.velocityZ =
+                        PC_DECAY_EX(slot->motion.velocityZ * 15 / 16, slot->motion.velocityZ, 0xf00);
+                    slot->motion.velocityY += PC_SHARE(7);
                 } else if (gCurrentStageId == STAGE_ID_DOZAEMON_MOAT &&
                            slot->motion.position.y > MOAT_WATER_SURFACE_Y) {
                     /* Underwater drag and terminal fall speed in the moat. */
-                    slot->motion.velocityX = slot->motion.velocityX * 3 / 4;
-                    slot->motion.velocityZ = slot->motion.velocityZ * 3 / 4;
-                    slot->motion.velocityY += 4;
+                    slot->motion.velocityX = PC_DECAY_EX(slot->motion.velocityX * 3 / 4, slot->motion.velocityX, 0xc00);
+                    slot->motion.velocityZ = PC_DECAY_EX(slot->motion.velocityZ * 3 / 4, slot->motion.velocityZ, 0xc00);
+                    slot->motion.velocityY += PC_SHARE(4);
                     if (slot->motion.velocityY > 32) {
                         slot->motion.velocityY = 32;
                     }
                 } else {
-                    slot->motion.velocityY += 8;
+                    slot->motion.velocityY += PC_SHARE(8);
                 }
-                slot->motion.spinY = slot->motion.spinY * 7 / 8;
-                nextPos.x = slot->motion.position.x + slot->motion.velocityX;
-                nextPos.y = slot->motion.position.y + slot->motion.velocityY;
-                nextPos.z = slot->motion.position.z + slot->motion.velocityZ;
+                slot->motion.spinY = PC_DECAY_EX(slot->motion.spinY * 7 / 8, slot->motion.spinY, 0xe00);
+                nextPos.x = slot->motion.position.x + PC_SHARE(slot->motion.velocityX);
+                nextPos.y = slot->motion.position.y + PC_SHARE(slot->motion.velocityY);
+                nextPos.z = slot->motion.position.z + PC_SHARE(slot->motion.velocityZ);
                 surfaceY = QueryFloorHeight(nextPos.x, nextPos.y, nextPos.z);
                 surfaceNormal = GetLastFloorNormal();
                 if ((GetLastFloorAttr() & FLOOR_ATTR_NO_IMPACT) != 0) {
@@ -662,8 +710,8 @@ void UpdateAndDrawSubWeapons(void)
                     slot->motion.velocityX = -slot->motion.velocityX / 8;
                     slot->motion.velocityZ = -slot->motion.velocityZ / 8;
                     slot->motion.velocityY = slot->motion.velocityY / 4;
-                    slot->motion.position.x += slot->motion.velocityX;
-                    slot->motion.position.z += slot->motion.velocityZ;
+                    slot->motion.position.x += PC_SHARE(slot->motion.velocityX);
+                    slot->motion.position.z += PC_SHARE(slot->motion.velocityZ);
                     EmitSubWeaponBounceEffect(slot);
                     slot->hitState = SUB_WEAPON_HIT_INACTIVE;
                 } else if (surfaceY < nextPos.y) {
@@ -677,7 +725,7 @@ void UpdateAndDrawSubWeapons(void)
                         slot->motion.velocityX = slot->motion.velocityX * 3 / 4;
                         slot->motion.velocityZ = slot->motion.velocityZ * 3 / 4;
                         slot->hitState = SUB_WEAPON_HIT_INACTIVE;
-                        slot->motion.position.y += slot->motion.velocityY;
+                        slot->motion.position.y += PC_SHARE(slot->motion.velocityY);
                     }
                 } else {
                     slot->motion.position = nextPos;
@@ -694,11 +742,21 @@ void UpdateAndDrawSubWeapons(void)
                     RecordSubWeaponHistory(slotIndex, SUB_WEAPON_HISTORY_SETTLED);
                 }
             }
+#ifdef TARGET_PC
+            /* The splash is for crossing the surface on this tick. */
+            if (gCurrentStageId == STAGE_ID_DOZAEMON_MOAT && tickStartY < MOAT_WATER_SURFACE_Y &&
+                slot->motion.position.y >= MOAT_WATER_SURFACE_Y) {
+                EmitCombatEvent(GetSoundListenerSide((VECTOR *)&slot->motion.position), COMBAT_EVENT_WATER_SPLASH,
+                                (VECTOR *)&slot->motion.position);
+            }
+            PcTrackTrail(slotIndex, slot);
+#else
             if (gCurrentStageId == STAGE_ID_DOZAEMON_MOAT && slot->motion.prevPosition.y < MOAT_WATER_SURFACE_Y &&
                 slot->motion.position.y >= MOAT_WATER_SURFACE_Y) {
                 EmitCombatEvent(GetSoundListenerSide((VECTOR *)&slot->motion.position), COMBAT_EVENT_WATER_SPLASH,
                                 (VECTOR *)&slot->motion.position);
             }
+#endif
         }
         ++slotIndex;
         slot++;
