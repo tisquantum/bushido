@@ -45,42 +45,42 @@
 
 short gBladeLockMashButtons[] = { PADRup, PADRright, PADRdown };
 short gBladeLockWinner;
-/* Body separation sphere radii: [0] upper torso (hit-sphere 1), [1] lower body (midpoint of thigh spheres 15 & 19). */
+/* Body separation sphere radii: [0] torso (FIGHTER_SPHERE_TORSO), [1] lower body (midpoint of lower thigh spheres). */
 int gFighterBodyRadii[2] = { 350, 420 };
 
 static void MarkFighterInjuredRegion(int slot, int sphere)
 {
     switch (sphere) {
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-    case 5:
+    case FIGHTER_SPHERE_HEAD:
+    case FIGHTER_SPHERE_TORSO:
+    case FIGHTER_SPHERE_RIGHT_CHEST:
+    case FIGHTER_SPHERE_LEFT_CHEST:
+    case FIGHTER_SPHERE_LEFT_HIP:
+    case FIGHTER_SPHERE_RIGHT_HIP:
         gFighterInjuredRegions[slot] |= INJURY_OVERLAY_HEAD_TORSO;
         break;
-    case 6:
-    case 7:
-    case 8:
-    case 9:
+    case FIGHTER_SPHERE_LEFT_UPPER_ARM_UPPER:
+    case FIGHTER_SPHERE_LEFT_UPPER_ARM_LOWER:
+    case FIGHTER_SPHERE_LEFT_FOREARM_UPPER:
+    case FIGHTER_SPHERE_LEFT_FOREARM_LOWER:
         gFighterInjuredRegions[slot] |= INJURY_OVERLAY_LEFT_ARM;
         break;
-    case 10:
-    case 11:
-    case 12:
-    case 13:
+    case FIGHTER_SPHERE_RIGHT_UPPER_ARM_UPPER:
+    case FIGHTER_SPHERE_RIGHT_UPPER_ARM_LOWER:
+    case FIGHTER_SPHERE_RIGHT_FOREARM_UPPER:
+    case FIGHTER_SPHERE_RIGHT_FOREARM_LOWER:
         gFighterInjuredRegions[slot] |= INJURY_OVERLAY_RIGHT_ARM;
         break;
-    case 14:
-    case 15:
-    case 16:
-    case 17:
+    case FIGHTER_SPHERE_RIGHT_THIGH_UPPER:
+    case FIGHTER_SPHERE_RIGHT_THIGH_LOWER:
+    case FIGHTER_SPHERE_RIGHT_SHIN_UPPER:
+    case FIGHTER_SPHERE_RIGHT_SHIN_LOWER:
         gFighterInjuredRegions[slot] |= INJURY_OVERLAY_RIGHT_LEG;
         break;
-    case 18:
-    case 19:
-    case 20:
-    case 21:
+    case FIGHTER_SPHERE_LEFT_THIGH_UPPER:
+    case FIGHTER_SPHERE_LEFT_THIGH_LOWER:
+    case FIGHTER_SPHERE_LEFT_SHIN_UPPER:
+    case FIGHTER_SPHERE_LEFT_SHIN_LOWER:
         gFighterInjuredRegions[slot] |= INJURY_OVERLAY_LEFT_LEG;
         break;
     }
@@ -196,16 +196,28 @@ void ApplyFighterHitImpact(int mode, Fighter *fighter, int sphere, int impactAng
                     fighter->facingState = MOTION_FACING_INVERTED;
             }
             switch (sphere) {
-            case 6: case 7: case 8: case 9:
+            case FIGHTER_SPHERE_LEFT_UPPER_ARM_UPPER:
+            case FIGHTER_SPHERE_LEFT_UPPER_ARM_LOWER:
+            case FIGHTER_SPHERE_LEFT_FOREARM_UPPER:
+            case FIGHTER_SPHERE_LEFT_FOREARM_LOWER:
                 fighter->leftArmIntact = 0;
                 break;
-            case 10: case 11: case 12: case 13:
+            case FIGHTER_SPHERE_RIGHT_UPPER_ARM_UPPER:
+            case FIGHTER_SPHERE_RIGHT_UPPER_ARM_LOWER:
+            case FIGHTER_SPHERE_RIGHT_FOREARM_UPPER:
+            case FIGHTER_SPHERE_RIGHT_FOREARM_LOWER:
                 fighter->rightArmWoundCount++;
                 break;
-            case 14: case 15: case 18: case 19:
+            case FIGHTER_SPHERE_RIGHT_THIGH_UPPER:
+            case FIGHTER_SPHERE_RIGHT_THIGH_LOWER:
+            case FIGHTER_SPHERE_LEFT_THIGH_UPPER:
+            case FIGHTER_SPHERE_LEFT_THIGH_LOWER:
                 fighter->thighWoundCount++;
                 break;
-            case 16: case 17: case 20: case 21:
+            case FIGHTER_SPHERE_RIGHT_SHIN_UPPER:
+            case FIGHTER_SPHERE_RIGHT_SHIN_LOWER:
+            case FIGHTER_SPHERE_LEFT_SHIN_UPPER:
+            case FIGHTER_SPHERE_LEFT_SHIN_LOWER:
                 fighter->legsIntact = 0;
                 fighter->pendingAction = fighter->pendingAction == FORCED_ACTION_STAGGER_FRONT
                                              ? FORCED_ACTION_LEG_CRIPPLE
@@ -221,7 +233,12 @@ void ApplyFighterHitImpact(int mode, Fighter *fighter, int sphere, int impactAng
     }
 
     switch (sphere) {
-    case 0: case 1: case 2: case 3: case 4: case 5:
+    case FIGHTER_SPHERE_HEAD:
+    case FIGHTER_SPHERE_TORSO:
+    case FIGHTER_SPHERE_RIGHT_CHEST:
+    case FIGHTER_SPHERE_LEFT_CHEST:
+    case FIGHTER_SPHERE_LEFT_HIP:
+    case FIGHTER_SPHERE_RIGHT_HIP:
         if (isVitalHit != 0) {
             event = COMBAT_EVENT_FATAL_HIT;
             fighter->pendingAction =
@@ -237,25 +254,37 @@ void ApplyFighterHitImpact(int mode, Fighter *fighter, int sphere, int impactAng
             fighter->faceExpression = FIGHTER_FACE_WOUND;
         }
         break;
-    case 6: case 7: case 8: case 9:
+    case FIGHTER_SPHERE_LEFT_UPPER_ARM_UPPER:
+    case FIGHTER_SPHERE_LEFT_UPPER_ARM_LOWER:
+    case FIGHTER_SPHERE_LEFT_FOREARM_UPPER:
+    case FIGHTER_SPHERE_LEFT_FOREARM_LOWER:
         fighter->leftArmIntact = 0;
         fighter->pendingAction = FORCED_ACTION_LEFT_ARM_CRIPPLE;
         TriggerFighterRumble(fighter, RUMBLE_WOUND);
         fighter->faceExpression = FIGHTER_FACE_WOUND;
         break;
-    case 10: case 11: case 12: case 13:
+    case FIGHTER_SPHERE_RIGHT_UPPER_ARM_UPPER:
+    case FIGHTER_SPHERE_RIGHT_UPPER_ARM_LOWER:
+    case FIGHTER_SPHERE_RIGHT_FOREARM_UPPER:
+    case FIGHTER_SPHERE_RIGHT_FOREARM_LOWER:
         fighter->pendingAction = FORCED_ACTION_RIGHT_ARM_WOUND;
         fighter->rightArmWoundCount++;
         TriggerFighterRumble(fighter, RUMBLE_WOUND);
         fighter->faceExpression = FIGHTER_FACE_WOUND;
         break;
-    case 14: case 15: case 18: case 19:
+    case FIGHTER_SPHERE_RIGHT_THIGH_UPPER:
+    case FIGHTER_SPHERE_RIGHT_THIGH_LOWER:
+    case FIGHTER_SPHERE_LEFT_THIGH_UPPER:
+    case FIGHTER_SPHERE_LEFT_THIGH_LOWER:
         fighter->pendingAction = FORCED_ACTION_THIGH_WOUND;
         fighter->thighWoundCount++;
         TriggerFighterRumble(fighter, RUMBLE_WOUND);
         fighter->faceExpression = FIGHTER_FACE_WOUND;
         break;
-    case 16: case 17: case 20: case 21:
+    case FIGHTER_SPHERE_RIGHT_SHIN_UPPER:
+    case FIGHTER_SPHERE_RIGHT_SHIN_LOWER:
+    case FIGHTER_SPHERE_LEFT_SHIN_UPPER:
+    case FIGHTER_SPHERE_LEFT_SHIN_LOWER:
         fighter->legsIntact = 0;
         fighter->pendingAction = FORCED_ACTION_LEG_CRIPPLE;
         TriggerFighterRumble(fighter, RUMBLE_WOUND);
@@ -626,16 +655,16 @@ void ResolveFighterBodyCollision(void)
         COLLISION_SCRATCH->bodyCenters[side][0].y = COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_TORSO].y;
         COLLISION_SCRATCH->bodyCenters[side][0].z = COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_TORSO].z;
         COLLISION_SCRATCH->bodyCenters[side][1].x =
-            (COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_RIGHT_THIGH].x +
-             COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_LEFT_THIGH].x) /
+            (COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_RIGHT_THIGH_LOWER].x +
+             COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_LEFT_THIGH_LOWER].x) /
             2;
         COLLISION_SCRATCH->bodyCenters[side][1].y =
-            (COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_RIGHT_THIGH].y +
-             COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_LEFT_THIGH].y) /
+            (COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_RIGHT_THIGH_LOWER].y +
+             COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_LEFT_THIGH_LOWER].y) /
             2;
         COLLISION_SCRATCH->bodyCenters[side][1].z =
-            (COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_RIGHT_THIGH].z +
-             COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_LEFT_THIGH].z) /
+            (COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_RIGHT_THIGH_LOWER].z +
+             COLLISION_SCRATCH->bodyPartPos[side][FIGHTER_SPHERE_LEFT_THIGH_LOWER].z) /
             2;
     }
 

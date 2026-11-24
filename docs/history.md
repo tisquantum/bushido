@@ -17,9 +17,9 @@ build is the plain text, and `#ifdef VERSION_JP` or `VERSION_EU` marks where ano
 Compared routine by routine, each routine paired with the one the other build compiles from the same source, and
 with addresses set aside (two routines are the same when their bytes agree once relocation is undone):
 
-- **Japan against North America:** of the North American build's 983 routines, 783 are the same in Japan, 183
+- **Japan against North America:** of the North American build's 984 routines, 784 are the same in Japan, 183
   differ and 17 have no counterpart; Japan has 39 routines the North American build lacks.
-- **Europe against North America:** 975 are the same and 8 differ; neither build has a routine the other lacks.
+- **Europe against North America:** 976 are the same and 8 differ; neither build has a routine the other lacks.
 
 Many of the 183 differ only in a record's layout. The fighter record is 808 bytes outside Japan and 792 in it (a
 fighter carries up to 16 thrown sub-weapons outside Japan and 11 in it, `include/fighter.h`), and every routine

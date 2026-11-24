@@ -4,80 +4,12 @@
 
 #include "spu_int.h"
 
-/* SPU reverb registers (halfword offsets from 0x1f801c00: 0x1f801dc0..0x1f801dfe). */
-#define SPU_REG_REV_dAPF1       0xe0
-#define SPU_REG_REV_dAPF2       0xe1
-#define SPU_REG_REV_vIIR        0xe2
-#define SPU_REG_REV_vCOMB1      0xe3
-#define SPU_REG_REV_vCOMB2      0xe4
-#define SPU_REG_REV_vCOMB3      0xe5
-#define SPU_REG_REV_vCOMB4      0xe6
-#define SPU_REG_REV_vWALL       0xe7
-#define SPU_REG_REV_vAPF1       0xe8
-#define SPU_REG_REV_vAPF2       0xe9
-#define SPU_REG_REV_mLSAME      0xea
-#define SPU_REG_REV_mRSAME      0xeb
-#define SPU_REG_REV_mLCOMB1     0xec
-#define SPU_REG_REV_mRCOMB1     0xed
-#define SPU_REG_REV_mLCOMB2     0xee
-#define SPU_REG_REV_mRCOMB2     0xef
-#define SPU_REG_REV_dLSAME      0xf0
-#define SPU_REG_REV_dRSAME      0xf1
-#define SPU_REG_REV_mLDIFF      0xf2
-#define SPU_REG_REV_mRDIFF      0xf3
-#define SPU_REG_REV_mLCOMB3     0xf4
-#define SPU_REG_REV_mRCOMB3     0xf5
-#define SPU_REG_REV_mLCOMB4     0xf6
-#define SPU_REG_REV_mRCOMB4     0xf7
-#define SPU_REG_REV_dLDIFF      0xf8
-#define SPU_REG_REV_dRDIFF      0xf9
-#define SPU_REG_REV_mLAPF1      0xfa
-#define SPU_REG_REV_mRAPF1      0xfb
-#define SPU_REG_REV_mLAPF2      0xfc
-#define SPU_REG_REV_mRAPF2      0xfd
-#define SPU_REG_REV_vLIN        0xfe
-#define SPU_REG_REV_vRIN        0xff
-
-#define SPU_REV_MASK_dAPF1      0x00000001
-#define SPU_REV_MASK_dAPF2      0x00000002
-#define SPU_REV_MASK_vIIR       0x00000004
-#define SPU_REV_MASK_vCOMB1     0x00000008
-#define SPU_REV_MASK_vCOMB2     0x00000010
-#define SPU_REV_MASK_vCOMB3     0x00000020
-#define SPU_REV_MASK_vCOMB4     0x00000040
-#define SPU_REV_MASK_vWALL      0x00000080
-#define SPU_REV_MASK_vAPF1      0x00000100
-#define SPU_REV_MASK_vAPF2      0x00000200
-#define SPU_REV_MASK_mLSAME     0x00000400
-#define SPU_REV_MASK_mRSAME     0x00000800
-#define SPU_REV_MASK_mLCOMB1    0x00001000
-#define SPU_REV_MASK_mRCOMB1    0x00002000
-#define SPU_REV_MASK_mLCOMB2    0x00004000
-#define SPU_REV_MASK_mRCOMB2    0x00008000
-#define SPU_REV_MASK_dLSAME     0x00010000
-#define SPU_REV_MASK_dRSAME     0x00020000
-#define SPU_REV_MASK_mLDIFF     0x00040000
-#define SPU_REV_MASK_mRDIFF     0x00080000
-#define SPU_REV_MASK_mLCOMB3    0x00100000
-#define SPU_REV_MASK_mRCOMB3    0x00200000
-#define SPU_REV_MASK_mLCOMB4    0x00400000
-#define SPU_REV_MASK_mRCOMB4    0x00800000
-#define SPU_REV_MASK_dLDIFF     0x01000000
-#define SPU_REV_MASK_dRDIFF     0x02000000
-#define SPU_REV_MASK_mLAPF1     0x04000000
-#define SPU_REV_MASK_mRAPF1     0x08000000
-#define SPU_REV_MASK_mLAPF2     0x10000000
-#define SPU_REV_MASK_mRAPF2     0x20000000
-#define SPU_REV_MASK_vLIN       0x40000000
-#define SPU_REV_MASK_vRIN       0x80000000
-
 static void _spu_setReverbAttr(SpuReverbPreset *param);
 
-/* kept: the original copies each preset byte by byte; written in place, the loop compiles differently */
-static __inline__ void CopyBytes(const void *src, void *dst, long n)
+static __inline__ void _memcpy(void *dst, const void *src, long n)
 {
-    const unsigned char *s = src;
     unsigned char *d = dst;
+    const unsigned char *s = src;
 
     while (n--) {
         *d++ = *s++;
@@ -120,7 +52,7 @@ long SpuSetReverbModeParam(SpuReverbAttr *attr)
         mode_set = 1;
         _spu_rev_attr.mode = mode;
         _spu_rev_offsetaddr = _spu_rev_startaddr[_spu_rev_attr.mode];
-        CopyBytes(&_spu_rev_param[_spu_rev_attr.mode], &param, sizeof(SpuReverbPreset));
+        _memcpy(&param, &_spu_rev_param[_spu_rev_attr.mode], sizeof(SpuReverbPreset));
         switch (_spu_rev_attr.mode) {
         case SPU_REV_MODE_ECHO:
             _spu_rev_attr.feedback = 0x7f;
@@ -142,7 +74,7 @@ long SpuSetReverbModeParam(SpuReverbAttr *attr)
         case SPU_REV_MODE_DELAY:
             delay_set = 1;
             if (!mode_set) {
-                CopyBytes(&_spu_rev_param[_spu_rev_attr.mode], &param, sizeof(SpuReverbPreset));
+                _memcpy(&param, &_spu_rev_param[_spu_rev_attr.mode], sizeof(SpuReverbPreset));
                 param.mask = SPU_REV_MASK_mLSAME | SPU_REV_MASK_mRSAME |
                              SPU_REV_MASK_mLCOMB1 | SPU_REV_MASK_dLSAME |
                              SPU_REV_MASK_mLAPF1 | SPU_REV_MASK_mRAPF1;
@@ -169,7 +101,7 @@ long SpuSetReverbModeParam(SpuReverbAttr *attr)
             feedback_set = 1;
             if (!mode_set) {
                 if (!delay_set) {
-                    CopyBytes(&_spu_rev_param[_spu_rev_attr.mode], &param, sizeof(SpuReverbPreset));
+                    _memcpy(&param, &_spu_rev_param[_spu_rev_attr.mode], sizeof(SpuReverbPreset));
                     param.mask = SPU_REV_MASK_vWALL;
                 } else {
                     param.mask |= SPU_REV_MASK_vWALL;

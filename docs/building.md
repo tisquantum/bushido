@@ -29,6 +29,41 @@ One array is not in the tree: the loading-screen picture (`gNowLoadingTim` in `s
 differs in the Japanese build), which the unit includes from a file holding the bytes at its address in the
 retail executable. `config/bushidoblade/assets.tsv` gives each build's include file, address, size and SHA-256.
 
+## What `build.sh` does
+
+`sh build.sh` builds all three executables from this tree, the reader's PsyQ kits and the reader's retail
+executables, stopping at the first input or output whose SHA-256 does not match the tables:
+
+1. **Check the tools and headers.** Every tool in `config/bushidoblade/tools.tsv` is checked by file name and
+   SHA-256, and every Runtime Library 3.6 header by `config/bushidoblade/headers.sha256`.
+2. **Extract the loading-screen picture.** The TIM array (`1,472` bytes in `SCUS_941.80` and `SCES_008.99`,
+   `2,240` bytes in `SLPM_860.20`) is read from each retail executable at the address and size
+   `config/bushidoblade/assets.tsv` gives, checked by SHA-256, and written as the include file `src/font_hud.c`
+   reads.
+3. **Compile and archive all 12 libraries.** Each library under `src/lib/` is built from its source modules by
+   the recipe in `config/bushidoblade/flags.tsv` and packed in its `.LST` order.
+4. **Compile and link all three builds.** Each of the 103 game units in `src/` is compiled or assembled under
+   its build's define (`VERSION_JP`, `VERSION_EU`, or none), linked with PSYLINK 2.27 using
+   `config/bushidoblade/SCUS.LNK` and the declared commons order (`config/bushidoblade/commons.tsv`), converted
+   to a PlayStation executable, and checked against its retail SHA-256 in `config/bushidoblade/builds.tsv`.
+
+Pass `--build-dir DIR` to choose the working directory and `--report DIR` to copy the verified per-executable
+match reports from `config/bushidoblade/reports/` once all SHA-256 checks pass (`sh build.sh --help` lists
+every option and variable). A clean run ends with `Verified 3 executable(s) cleanly.`
+
+### What it proves, and what it does not
+
+A pass proves that every game unit and every linked Runtime Library module in this tree, built with the period
+tools and linked with the declared commons order, reproduces `SCUS_941.80` (`595,968` B), `SLPM_860.20`
+(`604,160` B) and `SCES_008.99` (`595,968` B) byte for byte. Of each executable, only the single loading-screen
+TIM array (`1,472` B in USA and Europe; `2,240` B in Japan) is extracted from the retail binary rather than
+compiled from source.
+
+It does not prove that the uninitialized globals' order comes from source: `config/bushidoblade/commons.tsv`
+declares that order because PSYLINK 2.27 places commons by a hash of the authors' original names, most of which
+are lost. Nor does it prove that the source text is the authors' own spelling wherever two C forms compile to
+the same bytes.
+
 ## The tools
 
 All hashes are SHA-256; `config/bushidoblade/tools.tsv` lists each by hash.
@@ -90,13 +125,13 @@ behaviours single out **PSYLINK 2.27**, the linker of the kit whose assembler bu
   rules disagree it follows the symbol-table walk every time, and the later builds follow archive order. On the
   game's objects, 2.27 lays out Sony's modules in the original's order wherever the library source and archives
   say what Sony's said.
-- **It places uninitialized globals ("commons") by the same walk,** after every object's own storage: the 62
-  library commons whose original addresses the game's code binds lie in exactly its walk's order.
+- **It places uninitialized globals ("commons") by the same walk,** after every object's own storage: the 63
+  library commons whose original addresses the image binds lie in exactly its walk's order.
 - **It aligns every common to 4 bytes and rounds its size to 4.** Ten library commons of 16 to 384 bytes lie at
   addresses 4 modulo 8 in the original (`SsFCALL` at `0x801273F4`, `_svm_vab_pg` at `0x80129D54`, among them),
   which 2.42 and later, aligning large commons to 8, cannot produce.
 
-PSYLINK 2.27 holds 256 modules unless told otherwise, and the game links more (its 103 objects and about 180
+PSYLINK 2.27 holds 256 modules unless told otherwise, and the game links more (its 103 objects and 196
 library modules): the original link was run with `/n` to raise the limit.
 
 ### The Runtime Library: versions and recipes
@@ -147,7 +182,7 @@ would move. The original's order is therefore declared instead:
 `config/bushidoblade/commons.tsv` lists every common, in the order the original holds them, with each build's
 address and extent. It was derived from the image itself: each row is a global whose address the original's
 code binds, read from that code, so the table records what the image shows and nothing the image does not. It
-has 334 rows: 192 small and 142 large, of which 62 are the libraries' (they interleave with the game's, so they
+has 335 rows: 192 small and 143 large, of which 63 are the libraries' (they interleave with the game's, so they
 must be listed too) and 272 the game's. At link time the table becomes one object, linked last, that defines
 the commons in that order; PSYLINK 2.27 then allocates them where the original has them. Renaming a global
 never moves it.
@@ -198,6 +233,7 @@ picture, and states those by hash:
 | `config/bushidoblade/commons.tsv` | The declared order of the uninitialized globals. |
 | `config/bushidoblade/assets.tsv` | The loading-screen picture each executable embeds: address, size and SHA-256. |
 | `config/bushidoblade/headers.sha256` | The Runtime Library 3.6 headers by SHA-256. |
+| `config/bushidoblade/reports/*.json` | The per-executable `objdiff` match reports (`SCUS_941.80.json`, `SLPM_860.20.json`, `SCES_008.99.json`). |
 
 With exactly these tools and inputs, the source was built into the three executables, and each has its retail
 executable's SHA-256 (listed in the [README](../README.md)). Four of the tools are DOS programs (ASPSX 2.21,

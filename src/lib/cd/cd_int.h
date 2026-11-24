@@ -61,11 +61,12 @@
 #define CD_ALARM_VSYNC		960	/* in vertical blanks */
 #define CD_ALARM_LIMIT		0x3c0000
 
-/* bios.c defines these; CD_status is declared where it is used (sys.c reads it as a byte) */
+/* bios.c defines these */
 extern CdlCB CD_cbsync;
 extern CdlCB CD_cbready;
 extern CdlCB CD_cbread;
 extern int CD_debug;
+extern int CD_status;
 extern int CD_status1;
 extern int CD_nopen;
 extern CdlLOC CD_pos;

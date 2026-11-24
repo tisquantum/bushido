@@ -501,6 +501,7 @@ void DecodeNextMovieVlc(void)
 
 static void WaitMovieFrameReady(int mode)
 {
+    /* Busy-wait counter while AdvanceMovieSlice sets dec->frameReady from DecDCToutCallback. */
     volatile int timeout = MOVIE_DECODE_WAIT_LIMIT;
 
     while (dec->frameReady == 0) {

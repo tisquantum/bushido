@@ -621,7 +621,7 @@ void LoadOptionsMenuAssets(void)
     ReadCdFileSync(CD_FILE_OPTIONS_TIMS, arenaPtr);
     LoadTimGroup(arenaPtr, 0);
     DrawSync(0);
-    InitMenuGradientBackdrop(0);
+    InitMenuGradientBackdrop(MENU_GRADIENT_PALETTE_RED_YELLOW);
     SetStageClearAndFogColor(0);
 }
 

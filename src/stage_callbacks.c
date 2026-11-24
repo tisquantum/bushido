@@ -165,8 +165,8 @@ static void SetupSnowBuffers(void)
 {
     SnowInit init;
 
-    init.tpage = GetTPage(0, 1, 0x280, 0x100);
-    init.clut = GetClut(0x130, 0x1e0);
+    init.tpage = GetTPage(0, 1, 640, 256);
+    init.clut = GetClut(304, 480);
     init.u = 0;
     init.v = 0;
     init.storage = gSnowWorkStorage;
@@ -517,8 +517,8 @@ void InitMoatRainAndFoliage(void)
     RainInit rainInit;
     SwayingFoliageInit foliageInit;
 
-    rainInit.splashTpage = GetTPage(0, 0, 0x340, 0x180);
-    rainInit.splashClut = GetClut(0x120, 0x1e0);
+    rainInit.splashTpage = GetTPage(0, 0, 832, 384);
+    rainInit.splashClut = GetClut(288, 480);
     rainInit.splashU = 0;
     rainInit.splashV = 0x80;
     rainInit.splashEnabled = ReturnTrueRainSplashEnabled;
@@ -539,8 +539,8 @@ void InitMoatRainAndFoliage(void)
             ConvertRgbToLuminance(gRainColorBottom.r, gRainColorBottom.g, gRainColorBottom.b);
     }
 
-    foliageInit.tpage = GetTPage(0, 0, 0x340, 0x100);
-    foliageInit.clut = GetClut(0x130, 0x1e0);
+    foliageInit.tpage = GetTPage(0, 0, 832, 256);
+    foliageInit.clut = GetClut(304, 480);
     foliageInit.v1 = 0x7f;
     foliageInit.pos[0].vx = -2100;
     foliageInit.pos[0].vy = -3600;

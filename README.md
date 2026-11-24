@@ -30,8 +30,8 @@ one MODE2/2352 data track:
 ## State
 
 - **Every byte of the three executables comes from this tree,** except the loading-screen picture (below).
-  Built with the original tools, each relinks identical to its retail executable: the game's own code (983
-  routines in the North American and European builds, 1,005 in the Japanese), all its initialized data, and the
+  Built with the original tools, each relinks identical to its retail executable: the game's own code (984
+  routines in the North American and European builds, 1,006 in the Japanese), all its initialized data, and the
   Runtime Library modules the game links, each decompiled in `src/lib`.
 - **One link input is not source:** the order in which the linker placed the game's uninitialized globals
   (`config/bushidoblade/commons.tsv`). The original linker ordered them by the authors' own names, most of
@@ -82,7 +82,7 @@ every variable and option. A run that reproduces all three executables ends with
 `.github/workflows/verify.yml` runs the same script on a hosted Linux runner at each push to `master` and
 publishes each executable's match report once all three SHA-256 checks pass. It runs the Win32 tools with `wibo`
 and the DOS tools with `daze`, two freely available runners, each checked by SHA-256: one way to run `build.sh`
-off Windows. The kit and the retail executables come from a private repository; a fork without them builds
+off Windows. The kit and the retail executables are not in this repository; a fork without them builds
 nothing.
 
 ## Layout
@@ -92,9 +92,8 @@ nothing.
 | `src/*.c`, `src/*.s` | The game's own code: 97 C units and 5 hand-written assembly units, one per object of the original link, each named for what it holds, and `src/globals.c`, which defines the uninitialized globals no other unit defines. |
 | `src/lib/<library>/` | Sony's Runtime Library, decompiled, one file per module, under the directories Sony's objects record (`api`, `c2`, `card`, `cd`, `etc`, `gpu`, `gte`, `press`, `snd`, `spu`; LIBCOMB's and LIBSN's record none, and sit in `comb` and `libsn`), with a header beside the modules when only they include it. Each `<LIB>.LST` lists its library's members in archive order. |
 | `include/` | The game's headers: its records, constants and declarations; and the library's headers that modules of several directories, or the game, include. |
-| `config/bushidoblade/*.tsv`, `headers.sha256` | The build as tables: the tools by name, version and SHA-256 (`tools.tsv`), each part's options (`flags.tsv`), each executable with its define and SHA-256 (`builds.tsv`), the libraries and their member lists (`libraries.tsv`), the loading-screen picture each executable embeds (`assets.tsv`), and the kit's headers by SHA-256 (`headers.sha256`). |
-| `config/bushidoblade/SCUS.LNK` | The linker command file all three builds share: the objects in the original's order, then the libraries in the order its linker read them. |
-| `config/bushidoblade/commons.tsv` | The declared order of uninitialized globals, the one link input that is not source. |
+| `config/bushidoblade/` | The build as tables (`tools.tsv`, `flags.tsv`, `builds.tsv`, `libraries.tsv`, `assets.tsv`, `headers.sha256`), the linker command file `SCUS.LNK`, the declared commons order `commons.tsv`, and the per-executable match reports under `reports/`. |
+| `build.sh` | Standalone POSIX shell script generated from `config/bushidoblade/` that verifies inputs, compiles every library and game unit, links all three executables, and checks each SHA-256. |
 | `docs/` | The documents below. |
 | `assets/` | Cover art; the progress images live on the `pages` branch. |
 
@@ -114,6 +113,9 @@ North American build is the unconditioned text.
 - [docs/history.md](docs/history.md): how the Japanese, North American and European builds differ.
 - [docs/kept-constructs.md](docs/kept-constructs.md): the few constructs the source keeps in an unusual form because the
   original's bytes need it, by file.
+- [docs/findings.md](docs/findings.md): what the shipped executables and discs hold that play does not reach—unreachable
+  routines and branches, unreferenced table rows and disc content, rare and conditional behaviour, build differences, and
+  how the game was built, each with its source or disc proof.
 - [docs/systems/](docs/systems/): one document per system. The game engine's: [the frame](docs/systems/frame.md),
   [rendering](docs/systems/rendering.md), [models and animation](docs/systems/models.md),
   [cloth](docs/systems/cloth.md), [lighting and fog](docs/systems/lighting.md), [the camera](docs/systems/camera.md),
@@ -129,8 +131,7 @@ North American build is the unconditioned text.
   [the menus](docs/systems/menus.md), [character select](docs/systems/character-select.md),
   [the opening](docs/systems/opening.md), [story presentation](docs/systems/story-presentation.md),
   [movies](docs/systems/movies.md),
-  [the rules of a match](docs/systems/match-rules.md). Both: the
-  [oddities of the original program](docs/systems/oddities.md).
+  [the rules of a match](docs/systems/match-rules.md).
 
 ## Licence
 

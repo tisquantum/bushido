@@ -117,7 +117,7 @@ void InitMainMenuState(void)
     gStoryChallengerActive = 0;
     gStoryChallengerTimer = 0;
     gStoryProloguePlayed = 0;
-    gStoryEventResult = 0;
+    gStoryEventResult = STORY_EVENT_NONE;
     gPracticeFirstBoutFlag = 1;
     gPlayMode = PLAY_MODE_STORY;
     LoadMenuSoundBanks();

@@ -86,7 +86,7 @@ wave edge and 2 on the other (`SampleOceanWaveEdgeX`).
 the replay. The player argument chooses whose sound bank is used: for most events the fighter it names, but the
 wounds and the fatal hit name the fighter struck and play the striker's weapon sound, and a thrown item's bounce
 and moat splash name the side of the camera the item is on (`GetSoundListenerSide`, 0 or 1), so the bounce plays
-the weapon sound of whichever fighter has that index ([oddities](oddities.md)). The numbers are `CombatEvent` in
+the weapon sound of whichever fighter has that index ([findings](../findings.md)). The numbers are `CombatEvent` in
 `include/combat_event.h`:
 
 | No. | Name | Raised by | Sound | Effect and light |

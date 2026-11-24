@@ -444,7 +444,7 @@ static int RollAiLeapChance(Fighter *fighter, int percent)
 /* Nothing calls it. */
 static int RollAiUnusedChance(Fighter *fighter, int percent)
 {
-    return gAiCharParamTable[fighter->characterClass].unusedChance * percent / 100 > (rand() & AI_Q12_MASK);
+    return gAiCharParamTable[fighter->characterClass].unreachedChance * percent / 100 > (rand() & AI_Q12_MASK);
 }
 
 static int RollAiEvadeChance(Fighter *fighter, int percent)
@@ -1015,7 +1015,7 @@ static int RunAiIdleDecision(Fighter *fighter)
             return 0;
         }
         angularDifference = fighter->angles.heading - fighter->opponent->angles.heading;
-        if (fighter->climbState != 0)
+        if (fighter->climbState != FIGHTER_CLIMB_NONE)
             angularDifference += ANGLE_HALF;
         angularDifference &= ANGLE_MASK;
         if (angularDifference >= ANGLE_HALF)
@@ -1047,6 +1047,35 @@ static int RunAiIdleDecision(Fighter *fighter)
     return 0;
 }
 
+/* Per-state Fighter.aiSubStep values for RunAiDefendOrEvade, single-script states, and flanking. */
+enum AiEvadeStep {
+    AI_EVADE_STEP_CHOOSE = 0,
+    AI_EVADE_STEP_START_SCRIPT,
+    AI_EVADE_STEP_RETURN_IDLE
+};
+
+enum AiScriptStep {
+    AI_SCRIPT_STEP_START = 0,
+    AI_SCRIPT_STEP_FINISH
+};
+
+enum AiFlankStep {
+    AI_FLANK_STEP_BACK_OUT = 0,
+    AI_FLANK_STEP_CIRCLE_IN,
+    AI_FLANK_STEP_HOLD_OR_SWITCH
+};
+
+/* RunAiDefendOrEvade choice in fighter->aiScratch.evadeChoice; 1..6 index gAiEvadeScripts[choice - 1]. */
+typedef enum AiEvadeChoice {
+    AI_EVADE_RETRY = -1,
+    AI_EVADE_GUARD = 0,
+    AI_EVADE_STAND_NONE,
+    AI_EVADE_STAND_SIDESTEP_DOWN,
+    AI_EVADE_STAND_SIDESTEP_UP,
+    AI_EVADE_DOWNED_NONE = 5,
+    AI_EVADE_DOWNED_SIDESTEP_DOWN
+} AiEvadeChoice;
+
 int RunAiDefendOrEvade(Fighter *fighter)
 {
     int result = 0;
@@ -1055,24 +1084,24 @@ int RunAiDefendOrEvade(Fighter *fighter)
     Fighter *opponent;
     int step;
 
-    if (fighter->aiSubStep == 0) {
+    if (fighter->aiSubStep == AI_EVADE_STEP_CHOOSE) {
         if (fighter->aiForceDefend != 0) {
             fighter->aiForceDefend = 0;
-            fighter->aiScratch.evadeChoice = 0;
+            fighter->aiScratch.evadeChoice = AI_EVADE_GUARD;
         } else if (fighter->opponent->isVerticalSwing == 0) { /* always taken: isVerticalSwing is always 0 */
-            fighter->aiScratch.evadeChoice = 0;
+            fighter->aiScratch.evadeChoice = AI_EVADE_GUARD;
         } else {
             action = fighter->action;
             if (action == FIGHTER_ACTION_NEUTRAL) {
                 choice = rand() & 3;
                 fighter->aiScratch.evadeChoice = choice;
             } else if (action == FIGHTER_ACTION_DOWNED) {
-                choice = (rand() & 1) + 5;
+                choice = (rand() & 1) + AI_EVADE_DOWNED_NONE;
                 fighter->aiScratch.evadeChoice = choice;
             } else if (action == FIGHTER_ACTION_CROUCH) {
-                fighter->aiScratch.evadeChoice = 0;
+                fighter->aiScratch.evadeChoice = AI_EVADE_GUARD;
             } else {
-                choice = -1;
+                choice = AI_EVADE_RETRY;
                 fighter->aiScratch.evadeChoice = choice;
             }
         }
@@ -1080,10 +1109,10 @@ int RunAiDefendOrEvade(Fighter *fighter)
     }
 
     switch (fighter->aiScratch.evadeChoice) {
-    case -1:
-        fighter->aiSubStep = 0;
+    case AI_EVADE_RETRY:
+        fighter->aiSubStep = AI_EVADE_STEP_CHOOSE;
         break;
-    case 0:
+    case AI_EVADE_GUARD:
         result = PADRleft;
         if (fighter->aiStateFrames >= 2 && fighter->action != FIGHTER_ACTION_GUARD) {
             SetAiState(fighter, AI_STATE_IDLE, 0);
@@ -1093,18 +1122,18 @@ int RunAiDefendOrEvade(Fighter *fighter)
                 SetAiState(fighter, AI_STATE_IDLE, 0);
         }
         break;
-    case 1:
-    case 2:
-    case 3:
-    case 5:
-    case 6:
+    case AI_EVADE_STAND_NONE:
+    case AI_EVADE_STAND_SIDESTEP_DOWN:
+    case AI_EVADE_STAND_SIDESTEP_UP:
+    case AI_EVADE_DOWNED_NONE:
+    case AI_EVADE_DOWNED_SIDESTEP_DOWN:
         step = fighter->aiSubStep;
         switch (step) {
-        case 1:
+        case AI_EVADE_STEP_START_SCRIPT:
             StartAiInputScript(fighter, gAiEvadeScripts[fighter->aiScratch.evadeChoice - 1]);
             ++fighter->aiSubStep;
             break;
-        case 2:
+        case AI_EVADE_STEP_RETURN_IDLE:
             SetAiState(fighter, AI_STATE_IDLE, 0);
             break;
         }
@@ -1121,11 +1150,11 @@ static int RunAiExecuteAttack(Fighter *fighter)
 
     step = fighter->aiSubStep;
     switch (step) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         fighter->aiSubStep += 1;
         SelectAiAttackScript(fighter);
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         if (fighter->action == FIGHTER_ACTION_NEUTRAL) {
             SetAiState(fighter, AI_STATE_IDLE, 8);
         }
@@ -1251,11 +1280,11 @@ static int RunAiGetUpBackward(Fighter *fighter)
 static int RunAiBackForwardAttack(Fighter *fighter)
 {
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         StartAiInputScript(fighter, gAiScriptBackForwardAttack);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         if (fighter->action == FIGHTER_ACTION_NEUTRAL)
             SetAiState(fighter, AI_STATE_IDLE, 0);
         break;
@@ -1384,11 +1413,11 @@ int RunAiSprintApproach(Fighter *fighter)
 int RunAiDashForward(Fighter *fighter)
 {
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         StartAiInputScript(fighter, gAiScriptDashForward);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         SetAiState(fighter, AI_STATE_IDLE, 0);
         break;
     }
@@ -1402,11 +1431,11 @@ int RunAiCrouchedAttack(Fighter *fighter)
 
     step = fighter->aiSubStep;
     switch (step) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         SelectAiCrouchedAttackScript(fighter);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         if (fighter->aiStateFrames >= 5) {
             action = fighter->action;
             if (action == FIGHTER_ACTION_CROUCH || action == FIGHTER_ACTION_DOWNED)
@@ -1422,11 +1451,11 @@ int RunAiGroundedRetreatAttack(Fighter *fighter)
     int action;
 
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         StartAiInputScript(fighter, gAiScriptGroundedRetreatAttack);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         action = fighter->action;
         if (action == FIGHTER_ACTION_CROUCH || action == FIGHTER_ACTION_DOWNED)
             SetAiState(fighter, AI_STATE_IDLE, 0);
@@ -1456,14 +1485,14 @@ int RunAiCrawlBackward(Fighter *fighter)
 int RunAiCrouchSubWeaponThrow(Fighter *fighter)
 {
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         if (fighter->subWeaponCount > 0)
             StartAiInputScript(fighter, gAiScriptCrouchThrowSubWeapon);
         else
             StartAiInputScript(fighter, gAiScriptCrouchForwardR2);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         if (fighter->action == FIGHTER_ACTION_CROUCH)
             SetAiState(fighter, AI_STATE_IDLE, 0);
         break;
@@ -1474,11 +1503,11 @@ int RunAiCrouchSubWeaponThrow(Fighter *fighter)
 int RunAiCrouchForwardR2(Fighter *fighter)
 {
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         StartAiInputScript(fighter, gAiScriptCrouchForwardR2);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         if (fighter->action == FIGHTER_ACTION_CROUCH)
             SetAiState(fighter, AI_STATE_IDLE, 0);
         break;
@@ -1536,11 +1565,11 @@ int RunAiSprintRetreat(Fighter *fighter)
 int RunAiBackflipRetreat(Fighter *fighter)
 {
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         StartAiInputScript(fighter, gAiScriptBackflipRetreat);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         SetAiState(fighter, AI_STATE_IDLE, 0);
         break;
     }
@@ -1550,11 +1579,11 @@ int RunAiBackflipRetreat(Fighter *fighter)
 int RunAiSidestepUp(Fighter *fighter)
 {
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         StartAiInputScript(fighter, gAiScriptSidestepUp);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         SetAiState(fighter, AI_STATE_IDLE, 0);
         break;
     }
@@ -1564,11 +1593,11 @@ int RunAiSidestepUp(Fighter *fighter)
 int RunAiSidestepDown(Fighter *fighter)
 {
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         StartAiInputScript(fighter, gAiScriptSidestepDown);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         SetAiState(fighter, AI_STATE_IDLE, 0);
         break;
     }
@@ -1578,11 +1607,11 @@ int RunAiSidestepDown(Fighter *fighter)
 int RunAiLeapForward(Fighter *fighter)
 {
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_SCRIPT_STEP_START:
         StartAiInputScript(fighter, gAiScriptLeapForward);
         ++fighter->aiSubStep;
         break;
-    case 1:
+    case AI_SCRIPT_STEP_FINISH:
         SetAiState(fighter, AI_STATE_IDLE, 0);
         break;
     }
@@ -1610,19 +1639,19 @@ int RunAiFlankUp(Fighter *fighter)
         }
     }
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_FLANK_STEP_BACK_OUT:
         buttons |= PADLleft | PADLup;
         if (++fighter->aiScratch.flankFrames > 10) {
             fighter->aiSubStep++;
         }
         return buttons;
-    case 1:
+    case AI_FLANK_STEP_CIRCLE_IN:
         buttons |= PADLright | PADLup;
         if (++fighter->aiScratch.flankFrames > 90 || RollAiApproachChance(fighter, 5) == 0) {
             fighter->aiSubStep++;
         }
         break;
-    case 2:
+    case AI_FLANK_STEP_HOLD_OR_SWITCH:
         buttons |= PADLright | PADLup;
         if ((rand() & 0x3f) == 0) {
             SetAiState(fighter, AI_STATE_SPRINT_APPROACH, 0);
@@ -1664,19 +1693,19 @@ int RunAiFlankDown(Fighter *fighter)
         }
     }
     switch (fighter->aiSubStep) {
-    case 0:
+    case AI_FLANK_STEP_BACK_OUT:
         buttons |= PADLleft | PADLdown;
         if (++fighter->aiScratch.flankFrames > 10) {
             fighter->aiSubStep++;
         }
         return buttons;
-    case 1:
+    case AI_FLANK_STEP_CIRCLE_IN:
         buttons |= PADLright | PADLdown;
         if (++fighter->aiScratch.flankFrames > 90 || RollAiApproachChance(fighter, 5) == 0) {
             fighter->aiSubStep++;
         }
         break;
-    case 2:
+    case AI_FLANK_STEP_HOLD_OR_SWITCH:
         buttons |= PADLright | PADLdown;
         if ((rand() & 0x3f) == 0) {
             SetAiState(fighter, AI_STATE_SPRINT_APPROACH, 0);

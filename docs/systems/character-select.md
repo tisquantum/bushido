@@ -52,7 +52,8 @@ Each figure is a `MenuAnimState` (`include/menu_animation.h`) running a script o
 15 plays that clip of `gMenuAnimClips` (42 clips, a first frame in the pose stream and a length), one with bit 15
 is an opcode (`MenuAnimOpcode`): wait for a flag, holding the current frame or looping the clip; halt; play the
 character's own clip (the argument plus four times the class: clips 12 to 35 are four per character); branch by one
-or two players or by a condition; jump; do nothing. `UpdateMenuAnimScript` advances a figure when its clip ends.
+or two players or by a condition (`MenuAnimBranchCond`: `MENU_ANIM_COND_P1_WEAPON_UNCONFIRMED`,
+`MENU_ANIM_COND_P2_IS_KATZE`); jump; do nothing. `UpdateMenuAnimScript` advances a figure when its clip ends.
 `ApplyMenuShowcasePose` decodes frame `startFrame + timer` from the pose stream and places the root in polar form
 (height, yaw, radius) about the figure's spot: player one at (900, 0, 900), player two at (-900, 0, 900), the host
 at the origin.
@@ -61,19 +62,48 @@ at the origin.
   shared clip; it holds until the weapon is confirmed; two clips of taking the weapon; it holds until the host is
   done; a last clip.
 - **Player two** (`gSelectP2Script`): the same with its own clips, waiting after its weapon for a cue the host
-  gives at step 18 of its script.
+  gives at step 18 (`SELECT_HOST_STEP_WAIT_P2_WEAPON`) of its script.
 - **The host** (`gSelectHostScript`): clips 0 to 11, branching on one or two players, on whether player one's
   weapon is confirmed and on whether player two chose Katze.
 
-The flags tie them together: confirming at step 1 of a player's script marks the character, at step 4 the weapon.
-When the active players reach step 4 the weapon phase begins; the host's clips 3 and 8 put player one's and player
-two's weapon in its hand, and the players' clips 38 (frame 19) and 37 (frame 17) move it to theirs, at a fixed
-offset from the right hand. Weapon nodes draw from model slot 0x10, mesh = weapon id, shadow = weapon id + 8.
+The flags tie them together through `SelectPlayerStep` and `SelectHostStep` (`src/select_scene.c`):
 
-The camera plays segments of the track (`gSelectCamScript1P`: four, `gSelectCamScript2P`: six), each a first key
-and a length, advancing when the figures reach given clips; the camera's yaw is turned half a turn. Near the end it
-starts a slow fade to white. When the last segment ends, Story, the challenger and Slash are done; the other modes
-fade in from white (fast) onto the stage list.
+| Enumerator | Step | Meaning |
+| --- | ---: | --- |
+| `SELECT_PLAYER_STEP_WAIT_CHAR` | 1 | Player one or two waiting for character confirm |
+| `SELECT_P1_STEP_CHAR_CONFIRMED` | 3 | Player one clip 36 before weapon wait (challenger resume) |
+| `SELECT_PLAYER_STEP_WAIT_WEAPON` | 4 | Player one or two waiting for weapon confirm |
+| `SELECT_P1_STEP_AFTER_WEAPON` | 6 | Player one clip 39 after weapon handoff |
+| `SELECT_P2_STEP_WAIT_HOST` | 7 | Player two waiting for the host to halt |
+| `SELECT_P1_STEP_WAIT_HOST` | 10 | Player one waiting for the host to halt |
+| `SELECT_HOST_STEP_WAIT_P1_WEAPON` | 9 | Host waiting for player one's weapon |
+| `SELECT_HOST_STEP_HALT_1P` | 14 | Host halt on the 1P and player-two-Katze path |
+| `SELECT_HOST_STEP_WAIT_P2_WEAPON` | 18 | Host waiting for player two's weapon |
+| `SELECT_HOST_STEP_HALT_2P` | 21 | Host halt on the 2P path |
+
+When the active players reach step 4 (`SELECT_PLAYER_STEP_WAIT_WEAPON`) the weapon phase begins; the host's clips
+`SELECT_CLIP_HOST_HOLD_P1_WEAPON` (3) and `SELECT_CLIP_HOST_HOLD_P2_WEAPON` (8) put player one's and player two's
+weapon in its hand, and the players' clips `SELECT_CLIP_P1_TAKE_WEAPON` (38, frame 19) and `SELECT_CLIP_P2_TAKE_WEAPON`
+(37, frame 17) move it to theirs, at a fixed offset from the right hand. Weapon nodes draw from model slot 0x10,
+mesh = weapon id, shadow = weapon id + 8.
+
+The camera steps through `SelectCamPhase` (`src/select_scene.c`) while playing segments of the track
+(`gSelectCamScript1P`: four, `gSelectCamScript2P`: six), each a first key and a length, with yaw turned half a turn;
+the eight tested clip cues are named in `SelectAnimClip` (`src/select_scene.c`):
+
+| Phase | Value | Advances on |
+| --- | ---: | --- |
+| `SELECT_CAM_CHAR_SELECT` | 0 | `SELECT_CLIP_HOST_PRESENT_P1` (2, t >= 25) to player one's weapon, or `SELECT_CLIP_HOST_PRESENT_P2` (7, t >= 5) jumping three segments to `SELECT_CAM_P2_WEAPON` when player one is already confirmed |
+| `SELECT_CAM_P1_WEAPON` | 1 | `SELECT_CLIP_P1_TAKE_WEAPON` (38) to `SELECT_CAM_1P_OUTRO_WAIT` in 1P or when player two is Katze, else `SELECT_CAM_TO_P2_WEAPON` |
+| `SELECT_CAM_TO_P2_WEAPON` | 2 | `SELECT_CLIP_HOST_PRESENT_P2` (7, t >= 5, presenting player two's weapon) |
+| `SELECT_CAM_P2_WEAPON` | 3 | `SELECT_CLIP_P2_TAKE_WEAPON` (37) |
+| `SELECT_CAM_2P_OUTRO_WAIT` | 4 | `SELECT_CLIP_HOST_2P_OUTRO` (10), starting `SCREEN_FADE_OUT_TO_WHITE_SLOW` |
+| `SELECT_CAM_2P_FADE_OUT` | 5 | Screen fade until the final 2P segment ends, then finishes or enters stage select |
+| `SELECT_CAM_1P_OUTRO_WAIT` | 6 | `SELECT_CLIP_HOST_1P_OUTRO` (5), starting `SCREEN_FADE_OUT_TO_WHITE_SLOW` |
+| `SELECT_CAM_1P_FADE_OUT` | 7 | Screen fade (completes segment at once when player two is Katze), then finishes or enters stage select |
+
+When the last segment ends, Story, the challenger and Slash are done; the other modes fade in from white (fast) onto
+the stage list.
 
 ## The 2D layer
 

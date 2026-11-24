@@ -413,7 +413,7 @@ unsigned int *LoadStageArchive(unsigned int *base, int stageId, int modelSlot)
 
     switch (stageId) {
     case 3:
-    case 14:
+    case STAGE_ID_BAMBOO_THICKET:
         RegisterModelTable(modelTable, modelSlot);
         LoadTimGroup((unsigned short *)timGroup, 0);
         ParseStageSceneLayout((u_short *)sceneLayout, modelSlot);
@@ -429,15 +429,15 @@ unsigned int *LoadStageArchive(unsigned int *base, int stageId, int modelSlot)
         RegisterModelTable(base + (base[5] >> 2), modelSlot + 1);
         break;
     /* both arms are the same in the original */
-    case 12:
-    case 17:
+    case STAGE_ID_EXECUTIONERS_COVE:
+    case STAGE_ID_YAGURA_POINT:
         RegisterModelTable(modelTable, modelSlot);
         LoadTimGroup((unsigned short *)timGroup, 0);
         ParseStageSceneLayout((u_short *)sceneLayout, modelSlot);
         SetFloorCollisionData(floorCollision);
         RegisterModelTable(base + (base[5] >> 2), modelSlot + 1);
         break;
-    case 19:
+    case STAGE_ID_DOZAEMON_MOAT:
         RegisterModelTable(base + (base[5] >> 2), modelSlot + 1);
         InitMoatBillboards(modelSlot + 1);
     default:
@@ -493,14 +493,14 @@ void RelocateArenaGroup(int group, int delta)
     case ARENA_GROUP_STAGE:
         switch (GetLoadedStageId()) {
         case 3:
-        case 14:
+        case STAGE_ID_BAMBOO_THICKET:
             RelocateCuttableProps(delta);
             break;
         case 9:
         case 11:
-        case 12:
-        case 17:
-        case 19:
+        case STAGE_ID_EXECUTIONERS_COVE:
+        case STAGE_ID_YAGURA_POINT:
+        case STAGE_ID_DOZAEMON_MOAT:
             RelocateModelTable(MODEL_SLOT_STAGE_EXTRA, delta);
             break;
         }

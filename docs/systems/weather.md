@@ -21,7 +21,7 @@ depth (`gSnowQuadExtents`), from two packet sets used on alternate frames.
 
 `InitStageSnowIfEnabled` restarts the snow when a bout starts and when the replay, the victory scene or the story
 states reset the scene, but only on Stages 0, 1, 3, 4, 5 and 10; on 2, 6, 7, 8 and 22 the flakes carry on
-([oddities](oddities.md)).
+([findings](../findings.md)).
 
 ## Rain
 

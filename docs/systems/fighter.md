@@ -61,13 +61,14 @@ one clip and names the placement that follows (`nextPlacement`). Input is read w
 (clear: the clip plays backwards), `MOTION_FLAG_FATAL`, `MOTION_FLAG_SURFACE_SUBWEAPON` and
 `MOTION_FLAG_BLEND_ON_EXIT`, and `facingMode` says how the fighter turns. `actionTable` points to the placements
 forced reactions lead to. A zero-terminated list of `MotionTrigger`s follows the 20-byte header: a 32-bit mask
-(button bits 0 to 15, the edge in bits 16 and 17: pressed, released, held, not held; an optional class mask from
-bit 18) and the placement it leads to.
+(button bits 0 to 15, the edge in bits 16 and 17 from `MotionTriggerEdge` in `src/fighter.c`:
+`MOTION_TRIGGER_EDGE_PRESSED` 0, `MOTION_TRIGGER_EDGE_RELEASED` 1, `MOTION_TRIGGER_EDGE_HELD` 2,
+`MOTION_TRIGGER_EDGE_NOT_HELD` 3; an optional class mask from bit 18) and the placement it leads to.
 
 A **clip record** (`AnimInfo`) is four bytes and a pointer: the action type, the first and last active frame,
 flags, and the frame events. The type becomes `Fighter.action` (`FighterAction`: neutral, attack, guard, recoil,
 stagger, fatal, crouch, heavy recoil, climb, fall, jump, downed, dead, special, defeated, pickup, throw, blade
-lock, blend, reload; type 8 is tested but has no name). The flags (`AnimInfoFlag`) are the **stance** in the low
+lock, blend, reload; type 8 is tested in `UpdateAiPriorityOverrides` and `BUFFERED_INPUT_ACTIONS`, appears in no motion archive on any disc, and has no name). The flags (`AnimInfoFlag`) are the **stance** in the low
 two bits (0 high, 1 middle, 2 low), a red slash trail, run, walk, homing jump, fixed speed and downed. A
 fighter's stance is therefore not stored anywhere: it is whatever the playing clip says. The frame events, read
 by `ProcessAnimFrameEvents` (`src/combat_event.c`, [combat-events.md](combat-events.md)), are pairs of
@@ -139,24 +140,29 @@ height and a surface normal;
 heights come in bands of 2000 (`FLOOR_BAND_HEIGHT`) and a surface is walkable when its normal's Y is below
 -3072 (about 41 degrees). `ResolveFighterFloorMovement` moves the fighter to its wanted point: up to 99 units up
 or any distance down a walkable surface it follows the floor; down a steep one it starts a fall
-(`StartFighterFallFromLedge`); otherwise it is blocked, records the wall, and slides along it with three
-quarters of the move, up to three times. With the wall-bump option on, a fighter running faster than 3000 that
-loses more than half its move against a wall stumbles (`TryStartWallBumpStumble`), except in Link play.
+(`StartFighterFallFromLedge`); otherwise it is blocked, records the wall, and slides along it with three quarters
+of the move through `SlideFighterAlongObstacle` (`WallSlideStep`: `WALL_SLIDE_INITIAL` 0, `WALL_SLIDE_FALLBACK_Z`
+1, `WALL_SLIDE_UNDO_Z` 2, `WALL_SLIDE_DONE` 3). With the wall-bump option on, a fighter running faster than 3000
+that loses more than half its move against a wall stumbles (`TryStartWallBumpStumble`), except in Link play.
 
 - **Running**: clips flagged run add `statureScale / 16` to `runSpeed` each frame, less the turn just made,
   up to `statureScale * 25 / 32`; the fighter steers toward the d-pad direction relative to the opponent
   (`UpdateFighterRunSteering`, `gDpadAngleTable`).
 - **Climbing**: R1 with a direction, against a recorded wall, legs intact, standing (or just after a head-on
   stumble): `CanClimbRecordedLedge` probes beyond the wall at three points and needs all three exactly one band
-  higher. The climb placement is action 15 plus the class's offset; `climbState` counts four steps.
-- **Jumping**: a jump clip, or an attack flagged homing jump, launches the fighter. A plain jump goes along the
-  heading at the class's speeds; a homing jump takes 70 percent of the upward speed and solves the horizontal
-  speed to land on the opponent's torso (`SolveBallisticJumpVelocity`, `src/combat_event.c`). Gravity adds 62
-  a frame; landing on a walkable surface ends the jump.
-- **Falling**: `fallState` 1 is a fall forwards, 2 a fall backwards (and any fall of a downed fighter). A clip
-  that reaches its last frame during a fall is held there while 500 is added to the downward velocity each
-  frame; before that, clips other than the fall clip add an amount that grows by 52 each frame. Landing from a
-  backward fall adds a torso wound, two if the drop was more than one band.
+  higher. The climb placement is action 15 plus the class's offset; `climbState` steps through `FighterClimbState`
+  (`FIGHTER_CLIMB_NONE` 0, `FIGHTER_CLIMB_START` 1, `FIGHTER_CLIMB_ASCEND` 2, `FIGHTER_CLIMB_TOP` 3,
+  `FIGHTER_CLIMB_FINISH` 4).
+- **Jumping**: a jump clip, or an attack flagged homing jump, launches the fighter, moving `jumpState` through
+  `FighterJumpState` (`FIGHTER_JUMP_NONE` 0, `FIGHTER_JUMP_LAUNCH` 1, `FIGHTER_JUMP_AIRBORNE` 2). A plain jump goes
+  along the heading at the class's speeds; a homing jump takes 70 percent of the upward speed and solves the
+  horizontal speed to land on the opponent's torso (`SolveBallisticJumpVelocity`, `src/combat_event.c`). Gravity
+  adds 62 a frame; landing on a walkable surface ends the jump.
+- **Falling**: `fallState` uses `FighterFallState`: `FIGHTER_FALL_NONE` (0), `FIGHTER_FALL_FORWARD` (1) for a fall
+  forwards, and `FIGHTER_FALL_BACKWARD` (2) for a fall backwards (and any fall of a downed fighter). A clip that
+  reaches its last frame during a fall is held there while 500 is added to the downward velocity each frame; before
+  that, clips other than the fall clip add an amount that grows by 52 each frame. Landing from a backward fall adds
+  a torso wound, two if the drop was more than one band.
 - **Separation**: in most standing actions (`CLAMP_SEPARATION_ACTIONS`) a fighter cannot move to more than 18316
   units from the opponent (`ClampFighterMaxSeparation`), except in the first-person view.
 - **Friction**: 0x800 less 0x200 for each foot on the ground, scaled by `(1400 - tractionWeight) * 3 / 1400`

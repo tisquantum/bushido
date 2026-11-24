@@ -38,10 +38,10 @@ void AssignFighterPairSlots(void)
     int first = gFighters[0].weaponId;
     int second = gFighters[1].weaponId;
 
-    if (first == 9) {
+    if (first == WEAPON_ID_BOUT6_BOSS) {
         first = WEAPON_ID_NAGINATA;
     }
-    if (second == 9) {
+    if (second == WEAPON_ID_BOUT6_BOSS) {
         second = WEAPON_ID_NAGINATA;
     }
     if (first <= second) {
@@ -84,9 +84,9 @@ void LoadWeaponPairMotions(void)
     int row = gFighters[1].weaponId;
     int handle;
 
-    if (column == 9)
+    if (column == WEAPON_ID_BOUT6_BOSS)
         column = WEAPON_ID_NAGINATA;
-    if (row == 9)
+    if (row == WEAPON_ID_BOUT6_BOSS)
         row = WEAPON_ID_NAGINATA;
 
     handle = ResolveCdFileHandle(CD_CATEGORY_MOTION, gWeaponPairMotionFiles[row][column]);
@@ -187,9 +187,9 @@ void UpdateStageEvents(void)
         for (player = 0; player < 2; player++) {
             if (gFighterAltTextureLoaded[player] == ALT_TEXTURE_NONE &&
                 (gFighters[player].surfaceFlags & FLOOR_ATTR_SURFACE_MASK) == FLOOR_SURFACE_SNOW &&
-                gFighters[player].fallState == 0 &&
-                gFighters[player].jumpState == 0 &&
-                gFighters[player].climbState == 0) {
+                gFighters[player].fallState == FIGHTER_FALL_NONE &&
+                gFighters[player].jumpState == FIGHTER_JUMP_NONE &&
+                gFighters[player].climbState == FIGHTER_CLIMB_NONE) {
                 LoadFighterAltTextures(player);
                 gFighterAltTextureLoaded[player] = ALT_TEXTURE_LOADED;
             }

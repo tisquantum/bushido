@@ -55,6 +55,11 @@ typedef enum SelectSoundId {
     SELECT_SOUND_WEAPON_CONFIRM = 3
 } SelectSoundId;
 
+typedef enum MenuAnimBranchCond {
+    MENU_ANIM_COND_P1_WEAPON_UNCONFIRMED = 0,
+    MENU_ANIM_COND_P2_IS_KATZE = 1
+} MenuAnimBranchCond;
+
 #define CD_FILE_SELECT_TIMS        0x53
 #define CD_FILE_SELECT_SCENE_DATA  0x54
 
@@ -95,7 +100,36 @@ typedef struct SelectCamSegment {
 #define SELECT_WEAPON_FROM_HOST    0x01
 #define SELECT_WEAPON_IN_HAND      0x02
 #define SELECT_WEAPON_ATTACHED     (SELECT_WEAPON_FROM_HOST | SELECT_WEAPON_IN_HAND)
-#define SELECT_P1_STEP_AFTER_WEAPON 6 /* where P1's script resumes once a weapon is chosen */
+
+/* Bytecode offsets in gSelectP1Script and gSelectP2Script tested by UpdateCharacterSelectMenu. */
+typedef enum SelectPlayerStep {
+    SELECT_PLAYER_STEP_WAIT_CHAR = 1,
+    SELECT_P1_STEP_CHAR_CONFIRMED = 3,
+    SELECT_PLAYER_STEP_WAIT_WEAPON = 4,
+    SELECT_P1_STEP_AFTER_WEAPON = 6,
+    SELECT_P2_STEP_WAIT_HOST = 7,
+    SELECT_P1_STEP_WAIT_HOST = 10
+} SelectPlayerStep;
+
+/* Bytecode offsets in gSelectHostScript tested by UpdateCharacterSelectMenu. */
+typedef enum SelectHostStep {
+    SELECT_HOST_STEP_WAIT_P1_WEAPON = 9,
+    SELECT_HOST_STEP_HALT_1P = 14,
+    SELECT_HOST_STEP_WAIT_P2_WEAPON = 18,
+    SELECT_HOST_STEP_HALT_2P = 21
+} SelectHostStep;
+
+/* Indices into gMenuAnimClips tested by UpdateCharacterSelectMenu for camera and weapon handoff cues. */
+typedef enum SelectAnimClip {
+    SELECT_CLIP_HOST_PRESENT_P1 = 2,
+    SELECT_CLIP_HOST_HOLD_P1_WEAPON = 3,
+    SELECT_CLIP_HOST_1P_OUTRO = 5,
+    SELECT_CLIP_HOST_PRESENT_P2 = 7,
+    SELECT_CLIP_HOST_HOLD_P2_WEAPON = 8,
+    SELECT_CLIP_HOST_2P_OUTRO = 10,
+    SELECT_CLIP_P2_TAKE_WEAPON = 37,
+    SELECT_CLIP_P1_TAKE_WEAPON = 38
+} SelectAnimClip;
 
 static int gSelectGameMode;
 static int gSelectPhase;
@@ -117,6 +151,17 @@ static int gSelectStageSubState;
 static int gSelectStageConfirmTimer;
 static SelectCameraKey *gSelectCameraTrack;
 static SelectCamSegment *gSelectCamSegment;
+typedef enum SelectCamPhase {
+    SELECT_CAM_CHAR_SELECT = 0,
+    SELECT_CAM_P1_WEAPON,
+    SELECT_CAM_TO_P2_WEAPON,
+    SELECT_CAM_P2_WEAPON,
+    SELECT_CAM_2P_OUTRO_WAIT,
+    SELECT_CAM_2P_FADE_OUT,
+    SELECT_CAM_1P_OUTRO_WAIT,
+    SELECT_CAM_1P_FADE_OUT
+} SelectCamPhase;
+
 static short gSelectCamSegmentFrame[2]; /* only [0] is used */
 static short gSelectCamPhase[2];        /* only [0] is used */
 static unsigned short *gSelectKatzeTimGroup;
@@ -245,7 +290,7 @@ char *InitCharacterSelectScene(int costumeLayout, int selectMode, char *mainCurs
     ApplyStageLighting(SELECT_LIGHTING_SCENE);
     BuildScreenFadePrim();
     SetStageClearAndFogColor(0);
-    InitMenuGradientBackdrop(0);
+    InitMenuGradientBackdrop(MENU_GRADIENT_PALETTE_RED_YELLOW);
     return mainCursor;
 }
 
@@ -342,15 +387,15 @@ signed char gStageSelectStagesByMode[8][8] = {
 unsigned short gSelectHostScript[22] = {
     0, 1,
     MENU_ANIM_CMD(MENU_ANIM_OP_WAIT_FLAG_HOLD, 0), MENU_ANIM_CMD(MENU_ANIM_OP_BRANCH_MODE, 0x30),
-    MENU_ANIM_CMD(MENU_ANIM_OP_BRANCH_COND, 0x02), 11,
-    MENU_ANIM_CMD(MENU_ANIM_OP_JUMP, 9), 2,
-    3, MENU_ANIM_CMD(MENU_ANIM_OP_WAIT_FLAG_HOLD, 1),
-    4, MENU_ANIM_CMD(MENU_ANIM_OP_BRANCH_COND, 0x11),
-    MENU_ANIM_CMD(MENU_ANIM_OP_BRANCH_MODE, 0x02), 5,
+    MENU_ANIM_CMD(MENU_ANIM_OP_BRANCH_COND, (MENU_ANIM_COND_P1_WEAPON_UNCONFIRMED << 4) | 2), 11,
+    MENU_ANIM_CMD(MENU_ANIM_OP_JUMP, 9), SELECT_CLIP_HOST_PRESENT_P1,
+    SELECT_CLIP_HOST_HOLD_P1_WEAPON, MENU_ANIM_CMD(MENU_ANIM_OP_WAIT_FLAG_HOLD, 1),
+    4, MENU_ANIM_CMD(MENU_ANIM_OP_BRANCH_COND, (MENU_ANIM_COND_P2_IS_KATZE << 4) | 1),
+    MENU_ANIM_CMD(MENU_ANIM_OP_BRANCH_MODE, 0x02), SELECT_CLIP_HOST_1P_OUTRO,
     MENU_ANIM_CMD(MENU_ANIM_OP_HALT, 0), 6,
-    7, 8,
+    SELECT_CLIP_HOST_PRESENT_P2, SELECT_CLIP_HOST_HOLD_P2_WEAPON,
     MENU_ANIM_CMD(MENU_ANIM_OP_WAIT_FLAG_HOLD, 2), 9,
-    10, MENU_ANIM_CMD(MENU_ANIM_OP_HALT, 0),
+    SELECT_CLIP_HOST_2P_OUTRO, MENU_ANIM_CMD(MENU_ANIM_OP_HALT, 0),
 };
 unsigned short gSelectP1Script[14] = {
     MENU_ANIM_CMD(MENU_ANIM_OP_PLAY_CHAR_CLIP, 12),
@@ -358,7 +403,7 @@ unsigned short gSelectP1Script[14] = {
     MENU_ANIM_CMD(MENU_ANIM_OP_PLAY_CHAR_CLIP, 13),
     36,
     MENU_ANIM_CMD(MENU_ANIM_OP_WAIT_FLAG_HOLD, 1),
-    38,
+    SELECT_CLIP_P1_TAKE_WEAPON,
     39,
     MENU_ANIM_CMD(MENU_ANIM_OP_NOP, 0),
     MENU_ANIM_CMD(MENU_ANIM_OP_NOP, 0),
@@ -374,7 +419,7 @@ unsigned short gSelectP2Script[10] = {
     MENU_ANIM_CMD(MENU_ANIM_OP_PLAY_CHAR_CLIP, 15),
     36,
     MENU_ANIM_CMD(MENU_ANIM_OP_WAIT_FLAG_HOLD, 3),
-    37, 39,
+    SELECT_CLIP_P2_TAKE_WEAPON, 39,
     MENU_ANIM_CMD(MENU_ANIM_OP_WAIT_FLAG_HOLD, 2),
     41,
     MENU_ANIM_CMD(MENU_ANIM_OP_HALT, 0),
@@ -444,7 +489,7 @@ void ResetCharacterSelectState(int twoPlayer)
         menuAnim = &gSelectAnimations[slot];
         if (slot == MENU_ANIM_SLOT_P1 && gSelectInitCount > 0) {
             savedFlags = menuAnim->flags;
-            resumeStep = -(savedFlags & MENU_ANIM_FLAG_CHAR_CONFIRMED) & 3;
+            resumeStep = -(savedFlags & MENU_ANIM_FLAG_CHAR_CONFIRMED) & SELECT_P1_STEP_CHAR_CONFIRMED;
             if ((savedFlags & MENU_ANIM_FLAG_WEAPON_CONFIRMED) != 0) {
                 resumeStep = SELECT_P1_STEP_AFTER_WEAPON;
             }
@@ -521,7 +566,7 @@ void ResetCharacterSelectState(int twoPlayer)
     } while (slot < 2);
     gSelectCamSegment = twoPlayer != 0 ? gSelectCamScript2P : gSelectCamScript1P;
     gSelectCamSegmentFrame[0] = 0;
-    gSelectCamPhase[0] = 0;
+    gSelectCamPhase[0] = SELECT_CAM_CHAR_SELECT;
     InitSelectScreenUiState();
     gSelectInitCount += 1;
 }
@@ -684,7 +729,7 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
             }
         }
         if ((gSelectAnimations[MENU_ANIM_SLOT_P1].flags & MENU_ANIM_FLAG_WEAPON_CONFIRMED) == 0 &&
-            gSelectAnimations[MENU_ANIM_SLOT_HOST].step == 9) {
+            gSelectAnimations[MENU_ANIM_SLOT_HOST].step == SELECT_HOST_STEP_WAIT_P1_WEAPON) {
             if (gSelectGameMode == SELECT_MODE_SLASH) {
                 gSelectWeaponSlotP1 = 0;
                 gSelectAnimations[MENU_ANIM_SLOT_P1].flags |= MENU_ANIM_FLAG_WEAPON_CONFIRMED;
@@ -705,7 +750,7 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
             p1Confirm = 0;
         }
         if ((gSelectAnimations[MENU_ANIM_SLOT_P2].flags & MENU_ANIM_FLAG_WEAPON_CONFIRMED) == 0 &&
-            gSelectAnimations[MENU_ANIM_SLOT_HOST].step >= 9) {
+            gSelectAnimations[MENU_ANIM_SLOT_HOST].step >= SELECT_HOST_STEP_WAIT_P1_WEAPON) {
             gSelectWeaponSlotP2 += p2Dir;
             if (gSelectWeaponSlotP2 < 0) {
                 gSelectWeaponSlotP2 = SELECT_WEAPON_SLOT_COUNT - 1;
@@ -720,7 +765,7 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
             p2Confirm = 0;
         }
         if ((gSelectAnimations[MENU_ANIM_SLOT_P2].flags & MENU_ANIM_FLAG_WEAPON_CONFIRMED) != 0 &&
-            gSelectAnimations[MENU_ANIM_SLOT_HOST].step == 0x12) {
+            gSelectAnimations[MENU_ANIM_SLOT_HOST].step == SELECT_HOST_STEP_WAIT_P2_WEAPON) {
             gSelectAnimations[MENU_ANIM_SLOT_P2].flags |= MENU_ANIM_FLAG_P2_WEAPON_CUE;
         }
         break;
@@ -795,18 +840,18 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
             }
             if (pressed != 0) {
                 switch (anim->step) {
-                case 1:
+                case SELECT_PLAYER_STEP_WAIT_CHAR:
                     anim->flags |= MENU_ANIM_FLAG_CHAR_CONFIRMED;
                     PlayCharacterSelectSound(SELECT_SOUND_CONFIRM);
                     break;
-                case 4:
+                case SELECT_PLAYER_STEP_WAIT_WEAPON:
                     anim->flags |= MENU_ANIM_FLAG_WEAPON_CONFIRMED;
                     PlayCharacterSelectSound(SELECT_SOUND_WEAPON_CONFIRM);
                     break;
                 }
             }
             menuValue = gSelectAnimations[MENU_ANIM_SLOT_HOST].step;
-            if (menuValue == 0x15 || menuValue == 0x0e) {
+            if (menuValue == SELECT_HOST_STEP_HALT_2P || menuValue == SELECT_HOST_STEP_HALT_1P) {
                 anim->flags |= MENU_ANIM_FLAG_HOST_DONE;
             }
         } while (gSelectTwoPlayer >= ++player);
@@ -835,7 +880,8 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
     }
     if (gSelectTwoPlayer != 0) {
         if ((gSelectAnimations[MENU_ANIM_SLOT_HOST].flags & MENU_ANIM_HOST_CHARS_CONFIRMED) == 0 &&
-            gSelectAnimations[MENU_ANIM_SLOT_P1].step >= 4 && gSelectAnimations[MENU_ANIM_SLOT_P2].step == 4) {
+            gSelectAnimations[MENU_ANIM_SLOT_P1].step >= SELECT_PLAYER_STEP_WAIT_WEAPON &&
+            gSelectAnimations[MENU_ANIM_SLOT_P2].step == SELECT_PLAYER_STEP_WAIT_WEAPON) {
             gSelectAnimations[MENU_ANIM_SLOT_HOST].flags |= MENU_ANIM_HOST_CHARS_CONFIRMED;
             gSelectPhase = SELECT_PHASE_WEAPON;
             if (gSelectWeaponSlotP1 == SELECT_WEAPON_SLOT_KATZE || gSelectWeaponSlotP2 == SELECT_WEAPON_SLOT_KATZE) {
@@ -848,31 +894,32 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
                 PlayCharacterSelectSound(SELECT_SOUND_WEAPON_CONFIRM);
             }
         }
-        if (gSelectAnimations[MENU_ANIM_SLOT_P1].step == 0xa) {
+        if (gSelectAnimations[MENU_ANIM_SLOT_P1].step == SELECT_P1_STEP_WAIT_HOST) {
             gSelectAnimations[MENU_ANIM_SLOT_HOST].flags |= MENU_ANIM_HOST_P1_WEAPON_DONE;
         }
         if ((gSelectAnimations[MENU_ANIM_SLOT_HOST].flags & MENU_ANIM_HOST_P2_WEAPON_DONE) == 0 &&
-            gSelectAnimations[MENU_ANIM_SLOT_P1].step == 0xa && gSelectAnimations[MENU_ANIM_SLOT_P2].step == 7) {
+            gSelectAnimations[MENU_ANIM_SLOT_P1].step == SELECT_P1_STEP_WAIT_HOST &&
+            gSelectAnimations[MENU_ANIM_SLOT_P2].step == SELECT_P2_STEP_WAIT_HOST) {
             gSelectAnimations[MENU_ANIM_SLOT_HOST].flags |= MENU_ANIM_HOST_P2_WEAPON_DONE;
             gSelectPhase = SELECT_PHASE_CONFIRMED;
         }
     } else {
         if ((gSelectAnimations[MENU_ANIM_SLOT_HOST].flags & MENU_ANIM_HOST_CHARS_CONFIRMED) == 0 &&
-            gSelectAnimations[MENU_ANIM_SLOT_P1].step == 4) {
+            gSelectAnimations[MENU_ANIM_SLOT_P1].step == SELECT_PLAYER_STEP_WAIT_WEAPON) {
             gSelectAnimations[MENU_ANIM_SLOT_HOST].flags |= MENU_ANIM_HOST_CHARS_CONFIRMED;
             gSelectPhase = SELECT_PHASE_WEAPON;
             if ((gSelectAnimations[MENU_ANIM_SLOT_P1].flags & MENU_ANIM_FLAG_WEAPON_CONFIRMED) != 0) {
                 PlayCharacterSelectSound(SELECT_SOUND_WEAPON_CONFIRM);
             }
         }
-        if (gSelectAnimations[MENU_ANIM_SLOT_P1].step == 0xa) {
+        if (gSelectAnimations[MENU_ANIM_SLOT_P1].step == SELECT_P1_STEP_WAIT_HOST) {
             gSelectPhase = SELECT_PHASE_CONFIRMED;
             gSelectAnimations[MENU_ANIM_SLOT_HOST].flags |= MENU_ANIM_HOST_P1_WEAPON_DONE;
         }
     }
     if (gSelectCamSegment->length - 1 < gSelectCamSegmentFrame[0]) {
         gSelectCamSegmentFrame[0] = gSelectCamSegment->length - 1;
-        if (gSelectCamPhase[0] == 5 || gSelectCamPhase[0] == 7) {
+        if (gSelectCamPhase[0] == SELECT_CAM_2P_FADE_OUT || gSelectCamPhase[0] == SELECT_CAM_1P_FADE_OUT) {
             if (gSelectGameMode == SELECT_MODE_STORY || gSelectGameMode == SELECT_MODE_STORY_CHALLENGER ||
                 gSelectGameMode == SELECT_MODE_SLASH) {
                 result = 1;
@@ -896,24 +943,24 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
     gSelectCamSegmentFrame[0] = camFrame + 1;
     advance = 0;
     switch (gSelectCamPhase[0]) {
-    case 0:
-        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == 2 &&
+    case SELECT_CAM_CHAR_SELECT:
+        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == SELECT_CLIP_HOST_PRESENT_P1 &&
             gSelectAnimations[MENU_ANIM_SLOT_HOST].timer >= 25) {
             advance = 1;
         }
-        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == 7 &&
+        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == SELECT_CLIP_HOST_PRESENT_P2 &&
             gSelectAnimations[MENU_ANIM_SLOT_HOST].timer >= 5) {
             gSelectCamSegmentFrame[0] = 0;
-            gSelectCamPhase[0] = 3;
+            gSelectCamPhase[0] = SELECT_CAM_P2_WEAPON;
             gSelectCamSegment += 3;
             advance = 0;
         }
         break;
-    case 1:
-        if (gSelectAnimations[MENU_ANIM_SLOT_P1].clipIndex == 0x26) {
+    case SELECT_CAM_P1_WEAPON:
+        if (gSelectAnimations[MENU_ANIM_SLOT_P1].clipIndex == SELECT_CLIP_P1_TAKE_WEAPON) {
             if (gSelectTwoPlayer == 0 || gSelectCharIndex[1] == SELECT_SLOT_KATZE) {
                 gSelectCamSegmentFrame[0] = 0;
-                gSelectCamPhase[0] = 6;
+                gSelectCamPhase[0] = SELECT_CAM_1P_OUTRO_WAIT;
                 gSelectCamSegment++;
                 advance = 0;
             } else {
@@ -921,35 +968,35 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
             }
         }
         break;
-    case 2:
-        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == 7 &&
+    case SELECT_CAM_TO_P2_WEAPON:
+        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == SELECT_CLIP_HOST_PRESENT_P2 &&
             gSelectAnimations[MENU_ANIM_SLOT_HOST].timer >= 5) {
             advance = 1;
         }
         break;
-    case 3:
-        if (gSelectAnimations[MENU_ANIM_SLOT_P2].clipIndex == 0x25) {
+    case SELECT_CAM_P2_WEAPON:
+        if (gSelectAnimations[MENU_ANIM_SLOT_P2].clipIndex == SELECT_CLIP_P2_TAKE_WEAPON) {
             advance = 1;
         }
         break;
-    case 4:
-        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == 0xa) {
+    case SELECT_CAM_2P_OUTRO_WAIT:
+        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == SELECT_CLIP_HOST_2P_OUTRO) {
             StartScreenFade(SCREEN_FADE_OUT_TO_WHITE_SLOW);
             advance = 1;
         }
         break;
-    case 5:
+    case SELECT_CAM_2P_FADE_OUT:
         if (gSelectPhase < SELECT_PHASE_STAGE) {
             UpdateAndDrawScreenFade();
         }
         break;
-    case 6:
-        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == 5) {
+    case SELECT_CAM_1P_OUTRO_WAIT:
+        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == SELECT_CLIP_HOST_1P_OUTRO) {
             StartScreenFade(SCREEN_FADE_OUT_TO_WHITE_SLOW);
             advance = 1;
         }
         break;
-    case 7:
+    case SELECT_CAM_1P_FADE_OUT:
         if (gSelectPhase < SELECT_PHASE_STAGE) {
             UpdateAndDrawScreenFade();
         }
@@ -988,17 +1035,17 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
         ResetClothWindWithJitter();
         UpdateAllFighterCloth();
         UpdateAndDrawBillboardEffects();
-        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == 3) {
+        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == SELECT_CLIP_HOST_HOLD_P1_WEAPON) {
             gSelectWeaponAttach[0] |= SELECT_WEAPON_FROM_HOST;
         }
-        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == 8) {
+        if (gSelectAnimations[MENU_ANIM_SLOT_HOST].clipIndex == SELECT_CLIP_HOST_HOLD_P2_WEAPON) {
             gSelectWeaponAttach[1] |= SELECT_WEAPON_FROM_HOST;
         }
-        if (gSelectAnimations[MENU_ANIM_SLOT_P1].clipIndex == 0x26 &&
+        if (gSelectAnimations[MENU_ANIM_SLOT_P1].clipIndex == SELECT_CLIP_P1_TAKE_WEAPON &&
             gSelectAnimations[MENU_ANIM_SLOT_P1].timer == 0x13) {
             gSelectWeaponAttach[0] |= SELECT_WEAPON_IN_HAND;
         }
-        if (gSelectAnimations[MENU_ANIM_SLOT_P2].clipIndex == 0x25 &&
+        if (gSelectAnimations[MENU_ANIM_SLOT_P2].clipIndex == SELECT_CLIP_P2_TAKE_WEAPON &&
             gSelectAnimations[MENU_ANIM_SLOT_P2].timer == 0x11) {
             gSelectWeaponAttach[1] |= SELECT_WEAPON_IN_HAND;
         }
@@ -1194,12 +1241,12 @@ void UpdateMenuAnimScript(int slot, int twoPlayer)
             case MENU_ANIM_OP_BRANCH_COND:
                 value = 0;
                 switch ((cmd >> 4) & 0xf) {
-                case 0:
+                case MENU_ANIM_COND_P1_WEAPON_UNCONFIRMED:
                     if ((gSelectAnimations[MENU_ANIM_SLOT_P1].flags & MENU_ANIM_FLAG_WEAPON_CONFIRMED) == 0) {
                         value = 1;
                     }
                     break;
-                case 1:
+                case MENU_ANIM_COND_P2_IS_KATZE:
                     if (gSelectCharIndex[1] == SELECT_SLOT_KATZE) {
                         value = 1;
                     }

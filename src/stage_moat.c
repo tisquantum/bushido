@@ -15,6 +15,7 @@
 #include "effect.h"
 #include "rot_matrix.h"
 #include "scene_math.h"
+#include "light.h"
 #include "stage_light.h"
 #include "stage_moat.h"
 #include "tim.h"
@@ -159,7 +160,7 @@ int InitMoatBillboardNodes(int modelSlot)
     for (i = 0; i < MOAT_BILLBOARD_NODE_COUNT; i++) {
         node = &gMoatBillboardNodes[0][0] + i;
         node->rotOrder = SCENE_ROT_ORDER_FAST;
-        node->lightSlot = 1;
+        node->lightSlot = LIGHT_SLOT_P2;
         node->meshIndex = i;
         node->modelSlot = modelSlot;
         node->renderType = SCENE_NODE_STANDARD;

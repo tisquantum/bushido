@@ -4,6 +4,8 @@
 #include <sys/types.h>
 #include <libgte.h>
 
+struct SceneNode;
+
 #define MOAT_WATER_SURFACE_Y 1200
 /* GetMoatFloorHeight's two values: over gMoatLowerRects, and over the upper ground. */
 #define MOAT_LOWER_FLOOR_Y   1200

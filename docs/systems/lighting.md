@@ -78,13 +78,15 @@ under the special slot there has no light at all.
 Hits, clashes, parries and the blade lock flash a coloured light on both fighters (`src/point_light.c`).
 `TriggerPointLightFlash` takes one of 20 presets in `gPointLightFlashPresets`, each a start and end colour in
 Q12 and a fade rate (rows 0 to 14 for the billboard effect kinds, 15 to 19 for the 3D effects through
-`TriggerAltPointLightFlash`; a negative rate marks an unused row). Each frame `UpdatePointLight` blends the
-colour from start to end (`LoadAverageShort12`, progress in Q12, advancing by the rate until 4096) and, for
-each fighter that registered as a target this frame (`RegisterPointLightTarget`, from
-`UpdateAndEnqueueFighterPose`), points that slot's light 1 from the flash to the fighter: yaw `ratan2(dx, dz)`,
+`TriggerAltPointLightFlash`; a negative rate marks an unused row). Each frame `ApplyPointLightToTargets` dispatches
+`UpdatePointLight` on the active target bitmask (`PointLightTargetMask`: `POINT_LIGHT_TARGET_P2`,
+`POINT_LIGHT_TARGET_P1`, `POINT_LIGHT_TARGET_BOTH`), which blends the colour from start to end (`LoadAverageShort12`,
+progress in Q12, advancing by the rate until 4096) and, for each fighter that registered as a target this frame
+(`RegisterPointLightTarget`, from `UpdateAndEnqueueFighterPose`), points that slot's light 1 from the flash to the
+fighter: yaw `ratan2(dx, dz)`,
 pitch from the height difference over the horizontal distance. A fighter more than 5,000 units from the flash
 (the squared length against 25,000,000, measured only while each delta is under 0x7000) gets no light 1; one
-with a delta of 0x7000 or more is lit however far it is ([oddities.md](oddities.md)).
+with a delta of 0x7000 or more is lit however far it is ([findings.md](../findings.md)).
 
 ## Depth cueing
 

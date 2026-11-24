@@ -35,8 +35,14 @@ typedef struct ClothPoint {
     int massOrPin;      /* 0 = rigid pin, >0 = soft pin, <0 = dynamic (-256 free) */
     int outLinkCount;
     int inLinkCount;
-    u_char outLinks[8];
-    u_char inLinks[8];
+    union {
+        u_char indices[8];
+        int packed[2];
+    } outLinks;
+    union {
+        u_char indices[8];
+        int packed[2];
+    } inLinks;
     int windWeight;     /* distance-from-center wind weight (0..256) */
     int unused[2];      /* 8 bytes nothing reads or writes */
 } ClothPoint;

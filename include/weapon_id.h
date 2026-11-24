@@ -11,6 +11,7 @@
 #define WEAPON_ID_NODACHI      6
 #define WEAPON_ID_SLEDGEHAMMER 7
 #define WEAPON_ID_GUN          8
+#define WEAPON_ID_BOUT6_BOSS   9 /* class 10 boss's weapon; no card on the weapon select screen */
 #define WEAPON_ID_COUNT        10
 #define WEAPON_ID_NONE         (-1) /* LoadSingleFighterSlot loads no weapon */
 

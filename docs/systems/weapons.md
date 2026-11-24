@@ -3,8 +3,8 @@
 A weapon is an id from 0 to 9 (`Fighter.weaponId`), named in `include/weapon_id.h` as the weapon select
 screen's cards name them: 0 katana, 1 long sword, 2 broadsword, 3 saber, 4 naginata, 5 rapier, 6 nodachi,
 7 sledgehammer. The six playable characters choose among these eight; 8 is Katze's gun; 9, the default weapon of
-the boss of class 10, has no card (`DATA3/O02.DAT` holds cards for 0 to 8 only) and no name. Thrown sub-weapons
-are ids 1 to 5, and 8 to 11 are bursts thrown up from the ground ([effects.md](effects.md)).
+the boss of class 10 (`WEAPON_ID_BOUT6_BOSS`), has no card (`DATA3/O02.DAT` holds cards for 0 to 8 only). Thrown
+sub-weapons are ids 1 to 5, and 8 to 11 are bursts thrown up from the ground ([effects.md](effects.md)).
 
 ## What differs per weapon
 
@@ -21,7 +21,7 @@ From `src/fighter.c` (grip, points, trails, traction) and `src/match_setup.c`:
 | 6 | nodachi | two hands | 3 | 0 to 1 | 2 | 19 |
 | 7 | sledgehammer | two hands | 4 | 0 to 1; 2 to 3 | 1 | 45 |
 | 8 | gun | one hand | 2 | a ray | 0 | 7 |
-| 9 | (none) | two hands | 4 | 2 to 1 | 2 | 22 |
+| 9 | (no card) | two hands | 4 | 2 to 1 | 2 | 22 |
 
 - **Edge points** (`gWeaponEdgeOffsets`, counts in `gWeaponEdgePointCounts`) are offsets from the right-hand
   weapon joint; along the weapon's length they run, for instance, from 72 to 996 for the katana, from 325 to
@@ -76,7 +76,7 @@ katana.
 Katze starts with 10 rounds and 9 magazines. `FireGunshotRayAndCheckHit` (`src/combat_hit.c`) fires once, on the
 first active frame of an attack clip, while rounds remain: the ray runs level from the gun's two points, 128
 times their length, and is tested against the 22 spheres with outer and vital radii like a blade (except spheres
-8 to 11 once the left arm is crippled, [oddities.md](oddities.md)). It then marches
+8 to 11 once the left arm is crippled, [findings.md](../findings.md)). It then marches
 32 steps of the barrel's length over the floor; if a wall comes before the target, the hit is cancelled and a
 bullet impact appears on the wall. A reload clip refills the gun to 10 on its first active frame if a magazine
 is left. The gun cannot be guarded, never clashes and never strikes walls; it is the only weapon whose trail

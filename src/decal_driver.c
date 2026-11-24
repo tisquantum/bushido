@@ -19,6 +19,7 @@
 #include "main.h"
 #include "model_arena.h"
 #include "otz.h"
+#include "stage_id.h"
 #include "globals.h"
 
 #define FOOT_CONTACT_Y_THRESHOLD (-200)
@@ -43,7 +44,7 @@ void InitStageGroundDecals(void)
     case 8:
     case 9:
     case 10:
-    case 12:
+    case STAGE_ID_EXECUTIONERS_COVE:
     case 22:
         texture.tpage = GET_TPAGE(0, 2, 640, 256);
         texture.clut = GET_CLUT(304, 480);

@@ -21,8 +21,9 @@ struct fmt_spec {
 
 static struct fmt_spec default_spec = { 0 };
 
-/* the original keeps ap in memory and steps it there for each argument */
-#define next_arg(ap, type) (*(*(type **)&(ap))++)
+/* This module's own va_arg macro; it keeps ap on the stack and post-increments, unlike the kit's stdarg.h. */
+#undef va_arg
+#define va_arg(ap, type) (*(*(type **)&(ap))++)
 
 int sprintf(char *buffer, char *fmt, ...)
 {
@@ -62,7 +63,7 @@ int sprintf(char *buffer, char *fmt, ...)
             }
         }
         if (ch == '*') {
-            spec.width = next_arg(ap, int);
+            spec.width = va_arg(ap, int);
             if (spec.width < 0) {
                 spec.width = -spec.width;
                 spec.f_minus = 1;
@@ -77,7 +78,7 @@ int sprintf(char *buffer, char *fmt, ...)
         if (ch == '.') {
             ch = *(unsigned char *)++fmt;
             if (ch == '*') {
-                spec.prec = next_arg(ap, int);
+                spec.prec = va_arg(ap, int);
                 ch = *(unsigned char *)++fmt;
             } else {
                 while (ch >= '0' && ch <= '9') {
@@ -108,11 +109,7 @@ int sprintf(char *buffer, char *fmt, ...)
             goto reswitch;
         case 'd':
         case 'i':
-            if (spec.f_long) {
-                val = next_arg(ap, long);
-            } else {
-                val = next_arg(ap, int);
-            }
+            val = spec.f_long ? va_arg(ap, long) : va_arg(ap, int);
             if (spec.f_short) {
                 val = (short)val;
             }
@@ -124,11 +121,7 @@ int sprintf(char *buffer, char *fmt, ...)
             }
             goto do_dec;
         case 'u':
-            if (spec.f_long) {
-                val = next_arg(ap, unsigned long);
-            } else {
-                val = next_arg(ap, unsigned int);
-            }
+            val = spec.f_long ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
             if (spec.f_short) {
                 val = (unsigned short)val;
             }
@@ -161,11 +154,7 @@ int sprintf(char *buffer, char *fmt, ...)
             }
             break;
         case 'o':
-            if (spec.f_long) {
-                val = next_arg(ap, unsigned long);
-            } else {
-                val = next_arg(ap, unsigned int);
-            }
+            val = spec.f_long ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
             if (spec.f_short) {
                 val = (unsigned short)val;
             }
@@ -203,11 +192,7 @@ int sprintf(char *buffer, char *fmt, ...)
         case 'x':
             digits = "0123456789abcdef";
         do_hex:
-            if (spec.f_long) {
-                val = next_arg(ap, unsigned long);
-            } else {
-                val = next_arg(ap, unsigned int);
-            }
+            val = spec.f_long ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
             if (spec.f_short) {
                 val = (unsigned short)val;
             }
@@ -239,11 +224,11 @@ int sprintf(char *buffer, char *fmt, ...)
             }
             break;
         case 'c':
-            *--p = next_arg(ap, int);
+            *--p = va_arg(ap, int);
             len = 1;
             break;
         case 's':
-            p = next_arg(ap, char *);
+            p = va_arg(ap, char *);
             if (spec.f_hash) {
                 /* Pascal-style length-prefixed string extension (%#s). */
                 len = *(unsigned char *)p++;
@@ -262,7 +247,7 @@ int sprintf(char *buffer, char *fmt, ...)
             }
             break;
         case 'n':
-            p = next_arg(ap, char *);
+            p = va_arg(ap, char *);
             if (spec.f_short) {
                 *(short *)p = count;
             } else if (spec.f_long) {

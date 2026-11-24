@@ -8,19 +8,19 @@ is doing. All of it runs in `UpdateCombatCollisions` (`src/collision.c`) after b
 ## The body and the blade
 
 `gBaseHitSpheres` (`src/fighter.c`) lists 22 spheres, each on a joint of the 18-joint skeleton
-(`FighterHitSphere`, `include/fighter_hit_sphere.h`; joints numbered as `FighterJointIndex` in
-`include/fighter_skeleton.h`: head 2, right arm 3 to 6, left arm 7 to 10, pelvis 11, right leg 12 to 14, left leg
-15 to 17):
+(`FighterHitSphere` and `FighterHitSphereId`, `include/fighter_hit_sphere.h`; joints numbered as
+`FighterJointIndex` in `include/fighter_skeleton.h`: head 2, right arm 3 to 6, left arm 7 to 10, pelvis 11, right
+leg 12 to 14, left leg 15 to 17):
 
-| Spheres | Bone | Outer radius | Vital radius |
-| --- | --- | --- | --- |
-| 0 | head | 228 | 228 |
-| 1, 2, 3 | torso | 210, 210, 205 | 210, 210, 205 |
-| 4, 5 | hips | 174 | 164 |
-| 6, 7 and 8, 9 | left arm, second and third bones | 90 and 65 | none |
-| 10, 11 and 12, 13 | right arm, second and third bones | 90 and 65 | none |
-| 14, 15 and 16, 17 | right thigh and lower leg | 130 | none |
-| 18, 19 and 20, 21 | left thigh and lower leg | 130 | none |
+| Spheres | `FighterHitSphereId` | Bone | Outer radius | Vital radius |
+| --- | --- | --- | --- | --- |
+| 0 | `FIGHTER_SPHERE_HEAD` | head | 228 | 228 |
+| 1, 2, 3 | `FIGHTER_SPHERE_TORSO`, `FIGHTER_SPHERE_RIGHT_CHEST`, `FIGHTER_SPHERE_LEFT_CHEST` | torso | 210, 210, 205 | 210, 210, 205 |
+| 4, 5 | `FIGHTER_SPHERE_LEFT_HIP`, `FIGHTER_SPHERE_RIGHT_HIP` | hips | 174 | 164 |
+| 6, 7 and 8, 9 | `FIGHTER_SPHERE_LEFT_UPPER_ARM_UPPER`..`FIGHTER_SPHERE_LEFT_FOREARM_LOWER` | left arm, second and third bones | 90 and 65 | none |
+| 10, 11 and 12, 13 | `FIGHTER_SPHERE_RIGHT_UPPER_ARM_UPPER`..`FIGHTER_SPHERE_RIGHT_FOREARM_LOWER` | right arm, second and third bones | 90 and 65 | none |
+| 14, 15 and 16, 17 | `FIGHTER_SPHERE_RIGHT_THIGH_UPPER`..`FIGHTER_SPHERE_RIGHT_SHIN_LOWER` | right thigh and lower leg | 130 | none |
+| 18, 19 and 20, 21 | `FIGHTER_SPHERE_LEFT_THIGH_UPPER`..`FIGHTER_SPHERE_LEFT_SHIN_LOWER` | left thigh and lower leg | 130 | none |
 
 `ScaleFighterHitSpheres` (`src/fighter_hit.c`) scales offsets and radii by the fighter's stature into
 `gFighterHitSpheres`, and `UpdateFighterHitGeometry` carries them to world space every frame. The same routine
@@ -48,7 +48,7 @@ solid prop (`CheckWeaponStagePropHit`, `src/stage_prop_hit.c`) or whose tip or b
 higher than the fighter's floor (`CheckWeaponWallStrike`) bounces: the fighter takes the clash recoil reaction
 and the swing loses `hitActive`, so it can hit nothing more. Cuttable props are cut instead
 (`TriggerCuttablePropFall`). The wall test alone is skipped in Slash mode, on stage 11 and during homing-jump
-attacks; on Executioner's Cove a wall counts only when its normal is steep enough (`COVE_WALL_NORMAL_Y_MIN`).
+attacks; on Executioner's Cove a wall counts only when its normal is steep enough (`FLOOR_WALKABLE_NORMAL_Y`).
 
 **Blade against blade**: each weapon's sweep this frame is a quad of its current and previous edge points, cut
 into two triangles; after a box test the triangles of the two sweeps are intersected
@@ -109,7 +109,7 @@ counters reset at every bout's start.
 
 - **Left arm**: posed hanging every frame (`ApplyDisabledLeftArmPose`, `src/fighter.c`); no sub-weapon can be
   thrown; a two-handed weapon's attacks run slower. From then on the blade, gunshot and sub-weapon tests skip
-  spheres 8 to 11, which are not the left arm's alone ([oddities.md](oddities.md)).
+  spheres 8 to 11, which are not the left arm's alone ([findings.md](../findings.md)).
 - **Legs**: the fighter can no longer climb, enters a blade lock never, and wins with the legs-lost victory
   motion; which motions remain is decided by the motion archive.
 - **Wounds** slow animation outside an attack's active frames (`UpdateFighterAnimSpeed`,

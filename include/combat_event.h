@@ -6,8 +6,9 @@
 
 #include "world_vector.h"
 
-/* Combat audiovisual event IDs passed to EmitCombatEvent / DispatchCombatEventEffect (1..20). */
+/* Combat audiovisual event IDs passed to EmitCombatEvent / DispatchCombatEventEffect (0 = none; 1..20). */
 typedef enum CombatEvent {
+    COMBAT_EVENT_NONE = 0,
     COMBAT_EVENT_TORSO_WOUND = 1,         /* non-lethal torso hit (ApplyFighterHitImpact) */
     COMBAT_EVENT_WEAPON_CLASH = 2,        /* blade-vs-blade clash / blade lock entry */
     COMBAT_EVENT_GUARD_PARRY = 3,         /* successful guard block/parry */

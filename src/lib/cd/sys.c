@@ -6,9 +6,6 @@
 #include "cd_int.h"
 #include "etc_int.h"
 
-/* kept: bios.c defines it int; the original reads it here as a byte */
-extern u_char CD_status;
-
 /* Commands whose parameter is a CdlLOC, sent via CdlSetloc first */
 static int CD_setloc[CD_COM_MAX] = {
 	0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -22,7 +19,7 @@ static inline int cd_control(u_char com, u_char *param, u_char *result, int asyn
 
 	while (cnt--) {
 		CD_cbsync = 0;
-		if (com != CdlNop && (CD_status & CdlStatShellOpen))
+		if (com != CdlNop && ((u_char)CD_status & CdlStatShellOpen))
 			CD_cw(CdlNop, 0, 0, 0);
 		if (param == 0 || CD_setloc[com] == 0 || CD_cw(CdlSetloc, param, result, 0) == 0) {
 			CD_cbsync = old;
@@ -36,7 +33,7 @@ static inline int cd_control(u_char com, u_char *param, u_char *result, int asyn
 
 int CdStatus(void)
 {
-	return CD_status;
+	return (u_char)CD_status;
 }
 
 int CdMode(void)

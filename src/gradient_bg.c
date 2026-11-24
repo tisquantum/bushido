@@ -14,12 +14,6 @@ static POLY_G4 gMenuBackdropQuads[DISPLAY_BUFFER_COUNT];
 #define MENU_BACKDROP_OT_BUCKET 4095
 #define MENU_BACKDROP_TOP_Y 16
 
-typedef enum MenuGradientPaletteId {
-    MENU_GRADIENT_PALETTE_RED_YELLOW = 0,
-    MENU_GRADIENT_PALETTE_BLACK = 1,
-    MENU_GRADIENT_PALETTE_COUNT = 2
-} MenuGradientPaletteId;
-
 typedef struct MenuGradientColor {
     unsigned char r, g, b;
 } MenuGradientColor;

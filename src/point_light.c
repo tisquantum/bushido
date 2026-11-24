@@ -186,16 +186,22 @@ void RegisterPointLightTarget(int side, WorldVector *position)
 /* 8 bytes; nothing reads or writes them. */
 static unsigned char gPointLightUnusedSbss[8];
 
+typedef enum PointLightTargetMask {
+    POINT_LIGHT_TARGET_P2 = 1,
+    POINT_LIGHT_TARGET_P1,
+    POINT_LIGHT_TARGET_BOTH
+} PointLightTargetMask;
+
 void ApplyPointLightToTargets(void)
 {
     switch (gPointLightTargetActive[0] * 2 + gPointLightTargetActive[1]) {
-    case 1:
+    case POINT_LIGHT_TARGET_P2:
         UpdatePointLight(0, gPointLightTargets[1]);
         return;
-    case 2:
+    case POINT_LIGHT_TARGET_P1:
         UpdatePointLight(gPointLightTargets[0], 0);
         return;
-    case 3:
+    case POINT_LIGHT_TARGET_BOTH:
         UpdatePointLight(gPointLightTargets[0], gPointLightTargets[1]);
     default:
         return;

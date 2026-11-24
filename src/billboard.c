@@ -29,6 +29,7 @@ u_char gBillboardFrameWidths[16] = {
 u_char gBillboardFrameHeights[16] = {
     0x10, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x10, 0x18, 0x18, 0x10, 0x10, 0x10, 0x00, 0x00,
 };
+/* Kinds 1 and 8..14 have no textures and nothing spawns them on any build; they keep their kind numbers. */
 u_short gBillboard1Uvs[7][4];
 u_short gLimbWoundBillboardUvs[6][4];
 u_short gOrangeSparkBillboardUvs[6][4];
@@ -180,7 +181,8 @@ int UpdateAndDrawBillboardEffect(BillboardEffectWork *work, BillboardEffectSlot 
 }
 
 /* Nothing calls SpawnBillboard1 or the thirteen Spawn...Billboard routines after it; callers pass the
- * kind to SpawnBillboardEffect. */
+ * kind to SpawnBillboardEffect. Kinds 1 and 8..14 have no textures and nothing spawns them on any build,
+ * so their helpers and descriptors keep their kind numbers. */
 static int SpawnBillboard1(const VECTOR *position)
 {
     return SpawnBillboardEffect(BILLBOARD_EFFECT_KIND_1, position);

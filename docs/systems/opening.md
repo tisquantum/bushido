@@ -18,9 +18,11 @@ build has no splash.
 
 ## The opening state
 
-`InitOpeningState` (state 3) loads the next variant (`gOpeningVariantIndex`, 0, 1, 2 in turn) and cues the opening
-music, XA track 8, paused; `UpdateOpeningState` lets the stream go at frame 195, runs the demo each frame, and
-moves to the demo battle when the script ends or to the main menu when start is pressed on either pad.
+`InitOpeningState` (state 3) loads the next variant (`gOpeningVariantIndex`, cycling through `OpeningDemoVariant` in
+`include/opening_demo.h`: 0 `OPENING_VARIANT_RED_SHADOW`, 1 `OPENING_VARIANT_KANNUKI`, 2
+`OPENING_VARIANT_BLACK_LOTUS`) and cues the opening music, XA track 8, paused; `UpdateOpeningState` lets the stream
+go at frame 195, runs the demo each frame, and moves to the demo battle when the script ends or to the main menu
+when start is pressed on either pad.
 
 `InitOpeningDemo` reads `DATA3/O01.DAT` (an `OpeningDemoArchiveHeader`: a pose stream, one camera track per variant
 for the fighter scene, one camera track for the stage scene, a TIM archive) into the dynamic load area and sets up
@@ -34,18 +36,19 @@ overlays and ribbon trail 0.
 ## The script
 
 Each variant has a script of shorts (`gOpeningDemoScripts`): a delay in frames since the previous step, then one or
-more operations, each an opcode and an argument, chained by a 0 between them. `StepOpeningDemoScript` waits for the
-delay, runs the step's operations and moves on; opcode 5 ends the script, and `UpdateOpeningDemo` then returns 0.
+more operations, each an opcode (`OpeningScriptOp`) and an argument, chained by a 0 (`OPENING_OP_NOP`) between them.
+`StepOpeningDemoScript` waits for the delay, runs the step's operations and moves on; opcode 5 (`OPENING_OP_END`)
+ends the script, and `UpdateOpeningDemo` then returns 0.
 
 | Opcode | Operation |
 | ---: | --- |
-| 1 | Start a screen fade with the argument as preset ([rendering.md](rendering.md)), or stop fading with -1 |
-| 2 | Overlay cue 0 to 9: upload its pictures and start its banner and cards (below) |
-| 3 | Upload a group of the TIM archive (no script uses it) |
-| 4 | The fighter scene: 0 start, 1 stop, 2 restart its pose frame |
-| 5 | End |
-| 6 | The camera scene: 0 start, 1 stop, 2 restart the pose frame |
-| 7 | `OpeningDemoScriptNoOp`, which does nothing; only variant 0's script calls it |
+| 1 `OPENING_OP_FADE` | Start a screen fade with the argument as preset ([rendering.md](rendering.md)), or stop fading with -1 (`OPENING_FADE_STOP`) |
+| 2 `OPENING_OP_OVERLAY` | Overlay cue 0 to 9: upload its pictures and start its banner and cards (below) |
+| 3 `OPENING_OP_LOAD_TIM` | Upload a group of the TIM archive (no script uses it) |
+| 4 `OPENING_OP_FIGHTER_SCENE` | The fighter scene (`OpeningSceneCommand`): 0 `OPENING_SCENE_START`, 1 `OPENING_SCENE_STOP`, 2 `OPENING_SCENE_RESET_FRAME` |
+| 5 `OPENING_OP_END` | End |
+| 6 `OPENING_OP_CAMERA_SCENE` | The camera scene (`OpeningSceneCommand`): 0 start, 1 stop, 2 restart its pose frame |
+| 7 `OPENING_OP_CALL_NOP` | `OpeningDemoScriptNoOp`, which does nothing; only variant 0's script calls it |
 
 All three scripts have one shape, apart from variant 0's calls of opcode 7; only four delays differ:
 

@@ -20,11 +20,11 @@ void InitRibbonTrail(int textureSet, int trailIndex)
     RibbonTrail *trail = &gRibbonTrails[trailIndex];
 
     if (textureSet == 0) {
-        trail->tpage = GetTPage(0, 1, 0x300, 200);
-        trail->clut = GetClut(0x330, 201);
+        trail->tpage = GetTPage(0, 1, 768, 200);
+        trail->clut = GetClut(816, 201);
     } else {
-        trail->tpage = GetTPage(0, 1, 0x3c0, 200);
-        trail->clut = GetClut(0x3f0, 201);
+        trail->tpage = GetTPage(0, 1, 960, 200);
+        trail->clut = GetClut(1008, 201);
     }
     trail->u0 = 0;
     trail->v0 = 200;

@@ -24,7 +24,7 @@
 #define CLASH_MIN_ACTIVE_FRAMES        4
 #define BLADE_LOCK_MAX_GROUND_DIFF     1000
 #define COLLISION_DIST_MAX             0x7fffffff
-#define HIT_PART_NONE                  (-1)
+#define HIT_SPHERE_NONE                (-1)
 #define WEAPON_SWEEP_SUBDIVIDE_DIST_SQ (2500 * 2500 - 1)
 
 #define COMPUTE_TRIANGLE_AABB(verts, outMin, outMax) \
@@ -144,7 +144,7 @@ static int CheckWeaponClashAndEnvHit(void)
         weaponId = gFighters[side].weaponId;
         currentPoints = &COLLISION_SCRATCH->weaponPoints[side][1];
         workPoints = work->workPoints[side];
-        if (weaponId == WEAPON_ID_NAGINATA || weaponId == 9) {
+        if (weaponId == WEAPON_ID_NAGINATA || weaponId == WEAPON_ID_BOUT6_BOSS) {
             workPoints[0] = currentPoints[1];
             workPoints[1] = currentPoints[0];
             workPoints[2] = gFighters[side].prevWeaponPoints[2];
@@ -330,12 +330,12 @@ static void ResolveWeaponVsBodyHits(void)
     WorldVector *prevBasePoint, *currentTipPoint;
     Fighter *defender, *attacker;
     int weaponId, segment;
-    int pointB, checkVital, triangleCount, hitPart;
+    int pointB, checkVital, triangleCount, hitSphere;
     WorldVector *midBasePoint, *midTipPoint;
     int dx, dy, dz;
     int isNonDegenerate;
     const FighterHitSphere *sphere;
-    int bestDistance, distance, part, partMask, bitOne;
+    int bestDistance, distance, sphereIndex, sphereMask, bitOne;
     int baseX, baseZ, tipX, tipZ;
     int angle, awayHeading, tipPushX, tipPushZ;
     int bladePushX, bladePushZ;
@@ -367,7 +367,7 @@ static void ResolveWeaponVsBodyHits(void)
         for (segment = 0; segment < segmentCount; ++segment) {
             checkVital = 1;
             if (segment == 0) {
-                if (attacker->weaponId == 9) {
+                if (attacker->weaponId == WEAPON_ID_BOUT6_BOSS) {
                     pointA = 2;
                     pointB = 1;
                 } else {
@@ -403,11 +403,11 @@ static void ResolveWeaponVsBodyHits(void)
             if (distance > WEAPON_SWEEP_SUBDIVIDE_DIST_SQ) {
                 triangleCount = 4;
             }
-            for (hitPart = 0; hitPart < triangleCount; ++hitPart) {
+            for (hitSphere = 0; hitSphere < triangleCount; ++hitSphere) {
                 midTipPoint = &work->workPoints[1][1];
                 midBasePoint = &work->workPoints[1][0];
                 if (triangleCount == 2) {
-                    if (hitPart == 0) {
+                    if (hitSphere == 0) {
                         work->primaryVerts[0] = prevBasePoint;
                         work->primaryVerts[1] = &work->workPoints[0][3];
                         work->primaryVerts[2] = currentTipPoint;
@@ -417,7 +417,7 @@ static void ResolveWeaponVsBodyHits(void)
                         work->primaryVerts[2] = prevBasePoint;
                     }
                 } else {
-                    switch (hitPart) {
+                    switch (hitSphere) {
                     case 0:
                         work->primaryVerts[0] = &work->workPoints[0][3];
                         work->primaryVerts[1] = prevBasePoint;
@@ -461,29 +461,29 @@ static void ResolveWeaponVsBodyHits(void)
                 dx = work->clashContactPoint.x - work->normalOrTarget.x;
                 dy = work->clashContactPoint.y - work->normalOrTarget.y;
                 dz = work->clashContactPoint.z - work->normalOrTarget.z;
-                hitPart = HIT_PART_NONE;
+                hitSphere = HIT_SPHERE_NONE;
                 bestDistance = dx * dx + dy * dy + dz * dz;
             } else {
                 bestDistance = COLLISION_DIST_MAX;
             }
-            part = 0;
+            sphereIndex = 0;
             bitOne = 1;
-            partMask = hitMasks[0];
+            sphereMask = hitMasks[0];
             do {
-                if ((partMask & (bitOne << part)) != 0) {
-                    dx = COLLISION_SCRATCH->bodyPartPos[side][part].x - work->normalOrTarget.x;
-                    dy = COLLISION_SCRATCH->bodyPartPos[side][part].y - work->normalOrTarget.y;
-                    dz = COLLISION_SCRATCH->bodyPartPos[side][part].z - work->normalOrTarget.z;
+                if ((sphereMask & (bitOne << sphereIndex)) != 0) {
+                    dx = COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].x - work->normalOrTarget.x;
+                    dy = COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].y - work->normalOrTarget.y;
+                    dz = COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].z - work->normalOrTarget.z;
                     distance = dx * dx + dy * dy + dz * dz - sphere->outerRadiusSq;
                     if (distance < bestDistance) {
                         bestDistance = distance;
-                        hitPart = part;
+                        hitSphere = sphereIndex;
                     }
                 }
-                ++part;
+                ++sphereIndex;
                 ++sphere;
-            } while (part < FIGHTER_HIT_SPHERE_COUNT);
-            if (hitPart != HIT_PART_NONE) {
+            } while (sphereIndex < FIGHTER_HIT_SPHERE_COUNT);
+            if (hitSphere != HIT_SPHERE_NONE) {
                 if (attacker->hitActive == 0 || attacker->action != FIGHTER_ACTION_ATTACK ||
                     (animInfo = attacker->animInfo,
                      frame = attacker->animFrame,
@@ -526,7 +526,7 @@ static void ResolveWeaponVsBodyHits(void)
             if (attacker->attackActive != 0 && attacker->hitActive != 0 &&
                 (attacker->weaponId != WEAPON_ID_GUN || gunHits != 0)) {
                 angle = defender->angles.heading - attacker->angles.heading;
-                if (defender->climbState != 0) {
+                if (defender->climbState != FIGHTER_CLIMB_NONE) {
                     angle += ANGLE_HALF;
                 }
                 angle &= ANGLE_MASK;
@@ -536,9 +536,9 @@ static void ResolveWeaponVsBodyHits(void)
                 if (angle < 0) {
                     angle = -angle;
                 }
-                if (hitPart != HIT_PART_NONE) {
-                    ApplyFighterHitImpact(HIT_BY_BLADE, defender, hitPart, angle,
-                                          defender->action == FIGHTER_ACTION_DOWNED ? 1 : hitMasks[1] & (1 << hitPart),
+                if (hitSphere != HIT_SPHERE_NONE) {
+                    ApplyFighterHitImpact(HIT_BY_BLADE, defender, hitSphere, angle,
+                                          defender->action == FIGHTER_ACTION_DOWNED ? 1 : hitMasks[1] & (1 << hitSphere),
                                           0);
                 } else {
                     anyClash = 1;
@@ -595,10 +595,10 @@ void UpdateCombatCollisions(void)
                 ((p2AnimFlags = gFighters[1].animInfo->flags) &
                  (ANIM_FLAG_DOWNED | ANIM_FLAG_HOMING_JUMP | ANIM_FLAG_RUN)) == 0 &&
                 gFighters[0].action != FIGHTER_ACTION_JUMP && gFighters[1].action != FIGHTER_ACTION_JUMP &&
-                gFighters[0].pendingAction == -1 && gFighters[1].pendingAction == -1 &&
+                gFighters[0].pendingAction == FORCED_ACTION_NONE && gFighters[1].pendingAction == FORCED_ACTION_NONE &&
                 gFighters[0].legsIntact != 0 && gFighters[1].legsIntact != 0 &&
                 (p1AnimFlags & ANIM_FLAG_STANCE_MASK) == (p2AnimFlags & ANIM_FLAG_STANCE_MASK) &&
-                gFighters[0].pendingFallAction == -1 && gFighters[1].pendingFallAction == -1) {
+                gFighters[0].pendingFallAction == FORCED_ACTION_NONE && gFighters[1].pendingFallAction == FORCED_ACTION_NONE) {
                 groundDeltaY = gFighters[0].groundY - gFighters[1].groundY;
                 if (groundDeltaY < 0) {
                     groundDeltaY = -groundDeltaY;
@@ -625,9 +625,12 @@ void UpdateCombatCollisions(void)
 
     for (i = 0; i < 2; ++i) {
         WorldVector *spheres = COLLISION_SCRATCH->bodyPartPos[i];
-        gFighters[i].torsoCenter.x = (spheres[1].x + spheres[2].x + spheres[3].x) / 3;
-        gFighters[i].torsoCenter.y = (spheres[1].y + spheres[2].y + spheres[3].y) / 3;
-        gFighters[i].torsoCenter.z = (spheres[1].z + spheres[2].z + spheres[3].z) / 3;
+        gFighters[i].torsoCenter.x = (spheres[FIGHTER_SPHERE_TORSO].x + spheres[FIGHTER_SPHERE_RIGHT_CHEST].x +
+                                      spheres[FIGHTER_SPHERE_LEFT_CHEST].x) / 3;
+        gFighters[i].torsoCenter.y = (spheres[FIGHTER_SPHERE_TORSO].y + spheres[FIGHTER_SPHERE_RIGHT_CHEST].y +
+                                      spheres[FIGHTER_SPHERE_LEFT_CHEST].y) / 3;
+        gFighters[i].torsoCenter.z = (spheres[FIGHTER_SPHERE_TORSO].z + spheres[FIGHTER_SPHERE_RIGHT_CHEST].z +
+                                      spheres[FIGHTER_SPHERE_LEFT_CHEST].z) / 3;
     }
     CheckSubWeaponFighterHits();
     DrawAllWeaponTrails();
@@ -642,60 +645,60 @@ void TestTriangleVsBodySpheres(Fighter *fighter, int isNonDegenerate, int checkV
     unsigned int hits, vitalHits;
     FighterHitSphere *sphere;
     int side;
-    int part;
+    int sphereIndex;
     int radius;
     int result, vitalHit;
 
     work = &COLLISION_SCRATCH->work;
-    part = 0;
+    sphereIndex = 0;
     hits = COLLISION_SCRATCH->work.hits;
     side = fighter->side;
     vitalHits = COLLISION_SCRATCH->work.vitalHits;
     sphere = gFighterHitSpheres[side];
     do {
-        if ((hits & (1 << part)) == 0 &&
+        if ((hits & (1 << sphereIndex)) == 0 &&
             (fighter->leftArmIntact != 0 ||
-             (unsigned int)(part - CRIPPLED_LEFT_ARM_SKIP_FIRST) >= CRIPPLED_LEFT_ARM_SKIP_COUNT)) {
+             (unsigned int)(sphereIndex - CRIPPLED_LEFT_ARM_SKIP_FIRST) >= CRIPPLED_LEFT_ARM_SKIP_COUNT)) {
             radius = sphere->outerRadius;
             result = 0;
-            if (work->primaryMax.x < COLLISION_SCRATCH->bodyPartPos[side][part].x - radius ||
-                COLLISION_SCRATCH->bodyPartPos[side][part].x + radius < work->primaryMin.x) {
+            if (work->primaryMax.x < COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].x - radius ||
+                COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].x + radius < work->primaryMin.x) {
                 result = 1;
-            } else if (work->primaryMax.y < COLLISION_SCRATCH->bodyPartPos[side][part].y - radius ||
-                       COLLISION_SCRATCH->bodyPartPos[side][part].y + radius < work->primaryMin.y) {
+            } else if (work->primaryMax.y < COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].y - radius ||
+                       COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].y + radius < work->primaryMin.y) {
                 result = 1;
-            } else if (work->primaryMax.z < COLLISION_SCRATCH->bodyPartPos[side][part].z - radius ||
-                       COLLISION_SCRATCH->bodyPartPos[side][part].z + radius < work->primaryMin.z) {
+            } else if (work->primaryMax.z < COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].z - radius ||
+                       COLLISION_SCRATCH->bodyPartPos[side][sphereIndex].z + radius < work->primaryMin.z) {
                 result = 1;
             }
             if (result == 0) {
                 if (isNonDegenerate != 0) {
-                    result = TestSphereVsAlignedTriangle(0, work, &COLLISION_SCRATCH->bodyPartPos[side][part],
+                    result = TestSphereVsAlignedTriangle(0, work, &COLLISION_SCRATCH->bodyPartPos[side][sphereIndex],
                                                          radius, sphere->outerRadiusSq);
                     if (result != 0 && sphere->isVital != 0 && checkVital != 0) {
                         vitalHit = TestSphereVsAlignedTriangle(1, work, 0, sphere->vitalRadius, sphere->vitalRadiusSq);
                         if (vitalHit != 0) {
-                            vitalHits |= 1 << part;
+                            vitalHits |= 1 << sphereIndex;
                         }
                     }
                 } else {
-                    result = TestSphereVsAlignedSegment(0, work, &COLLISION_SCRATCH->bodyPartPos[side][part],
+                    result = TestSphereVsAlignedSegment(0, work, &COLLISION_SCRATCH->bodyPartPos[side][sphereIndex],
                                                         radius, sphere->outerRadiusSq);
                     if (result != 0 && sphere->isVital != 0 && checkVital != 0) {
                         vitalHit = TestSphereVsAlignedSegment(1, work, 0, sphere->vitalRadius, sphere->vitalRadiusSq);
                         if (vitalHit != 0) {
-                            vitalHits |= 1 << part;
+                            vitalHits |= 1 << sphereIndex;
                         }
                     }
                 }
                 if (result != 0) {
-                    hits |= 1 << part;
+                    hits |= 1 << sphereIndex;
                 }
             }
         }
-        ++part;
+        ++sphereIndex;
         ++sphere;
-    } while (part < FIGHTER_HIT_SPHERE_COUNT);
+    } while (sphereIndex < FIGHTER_HIT_SPHERE_COUNT);
     work->hits = hits;
     work->vitalHits = vitalHits;
 }

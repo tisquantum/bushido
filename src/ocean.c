@@ -44,10 +44,10 @@ int InitOceanWaveMesh(void)
 
     gOceanWaveQuadDescs = (short *)((char *)GetGpuPacketBuffer(0) - 3712);
     desc = gOceanWaveQuadDescs;
-    shoreTpage = GetTPage(0, 0, 0x2c0, 0x180);
-    seaTpage = GetTPage(0, 0, 0x2c0, 0x1c0);
-    shoreClut = GetClut(0x120, 0x1e0);
-    seaClut = GetClut(0x120, 0x1e0);
+    shoreTpage = GetTPage(0, 0, 704, 384);
+    seaTpage = GetTPage(0, 0, 704, 448);
+    shoreClut = GetClut(288, 480);
+    seaClut = GetClut(288, 480);
 
     for (band = 0; band < OCEAN_QUAD_BANDS; band++) {
         for (col = 0; col < OCEAN_QUAD_COLS; col++) {

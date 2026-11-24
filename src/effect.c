@@ -147,7 +147,7 @@ EffectMesh4x10 gDustPuffMesh = {
 };
 
 /* Nothing spawns effect type 4. */
-EffectMesh4x8 gUnusedEffect4Mesh = {
+EffectMesh4x8 gEffect4Mesh = {
     EFFECT_MESH_BILLBOARD | EFFECT_MESH_LAST, { 0, 0, 0 }, 4,
     {
         { -200, -200, 0, -1 },
@@ -227,7 +227,7 @@ EffectMesh4x8 gGunMuzzleFlashP2Mesh = {
 };
 
 /* Nothing spawns effect type 7. */
-EffectMesh4x6 gUnusedEffect7Mesh = {
+EffectMesh4x6 gEffect7Mesh = {
     EFFECT_MESH_BILLBOARD | EFFECT_MESH_LAST, { 0, 0, 0 }, 4,
     {
         { -200, -400, 0, -1 },
@@ -353,10 +353,10 @@ EffectType gEffectTypeTable[EFFECT_TYPE_COUNT] = {
     { 5, 1, (void *)&gWallHitSparkMesh },
     { 10, 1, (void *)&gDustPuffMesh },
     { 0, 0, 0 },
-    { 8, 1, (void *)&gUnusedEffect4Mesh },
+    { 8, 1, (void *)&gEffect4Mesh },
     { 6, 1, (void *)&gGunMuzzleFlashP1Mesh },
     { 6, 1, (void *)&gGunMuzzleFlashP2Mesh },
-    { 6, 1, (void *)&gUnusedEffect7Mesh },
+    { 6, 1, (void *)&gEffect7Mesh },
     { 0, 0, 0 },
     { 5, 3, (void *)&gWaterSurfaceSplashMesh },
     { 0, 0, 0 },

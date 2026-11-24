@@ -125,8 +125,8 @@ static void SeedRandomFromLoadArea(void)
 
 RECT gDisplayClearRect = { 0, 0, DISPLAY_WIDTH, DISPLAY_VRAM_HEIGHT };
 /* 4 bytes and a pointer to them; nothing reads either. */
-char gUnusedStringFormat[4] = "%s";
-char *gUnusedStringFormatPtr = gUnusedStringFormat;
+char gStringFormat[4] = "%s";
+char *gStringFormatPtr = gStringFormat;
 StageTransition *gStageTransitionsPtr;
 unsigned char *gSharedWorkBuffer;
 short gDisplayPresentEnabled;

@@ -83,7 +83,7 @@ does its work. In the North American and Japanese builds (the European durations
 
 The prologue then ends and the bout starts. Cancel before the introduction's music has stopped skips to the
 character's part (through a flash of 45 frames); after it, cancel starts the bout. While the cards fade in, each
-fade also writes the colour of the entry after the card's sprite list ([oddities](oddities.md)).
+fade also writes the colour of the entry after the card's sprite list ([findings](../findings.md)).
 
 ## The dishonourable ending
 

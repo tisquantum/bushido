@@ -5,6 +5,12 @@
 
 #define OPENING_DEMO_VARIANT_COUNT 3
 
+typedef enum OpeningDemoVariant {
+    OPENING_VARIANT_RED_SHADOW = 0,
+    OPENING_VARIANT_KANNUKI,
+    OPENING_VARIANT_BLACK_LOTUS
+} OpeningDemoVariant;
+
 int InitOpeningDemo(int variant, char *resource);
 int UpdateOpeningDemo(void);
 void ResetOpeningScriptState(void);

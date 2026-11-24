@@ -10,6 +10,7 @@
 #include "globals.h"
 #include "link.h"
 #include "combat_state.h"
+#include "voice_state.h"
 
 CdlATV gCdMixCurrent;
 short gCdMixFadeLength; /* frames; only StartCdAudioMixFade, which nothing calls, sets it above 0 */
@@ -41,7 +42,7 @@ void StartCdAudioMixFade(int length, int ll, int lr, int rl, int rr)
 void EnableCdSpuAudio(void)
 {
     SsSetSerialAttr(SS_SERIAL_A, SS_MIX, SS_SON);
-    SsSetSerialVol(SS_SERIAL_A, 0x7f, 0x7f);
+    SsSetSerialVol(SS_SERIAL_A, SOUND_MAX_VOLUME, SOUND_MAX_VOLUME);
 }
 
 void InitCdSubsystem(void)
@@ -171,7 +172,7 @@ static void UpdateCdAudioStream(void)
                 int volume = gXaTrackVolumes[gCdDrive.stream.handle - xaBase][gCdDrive.stream.filter.chan];
                 SetCdAudioMix(volume, 0, volume, 0);
             } else {
-                SetCdAudioMix(0x7f, 0, 0x7f, 0);
+                SetCdAudioMix(SOUND_MAX_VOLUME, 0, SOUND_MAX_VOLUME, 0);
             }
         }
         if (gCdDrive.stream.stopRequested && gCdDrive.stream.ticks >= 5) {

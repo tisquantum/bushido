@@ -36,7 +36,7 @@ other code buffer into pixels (`DecDCTin`, `DecDCTout`), and its callback, `Adva
 on, raising `frameReady` when the frame is complete; `WaitMovieFrameReady` waits for that flag. A movie ends when
 the frame number in the sector header reaches its last frame: 3,000 for the opening, 990 to 2,131 for the endings
 (`gMovieMaxFrames`; in Japan the `endFrame` of `gMovieStreams`, the same numbers). Two values the player never sets
-and, outside Japan, a time-out that does not end the wait are in [oddities](oddities.md).
+and, outside Japan, a time-out that does not end the wait are in [findings](../findings.md).
 
 ## The North American and European player
 

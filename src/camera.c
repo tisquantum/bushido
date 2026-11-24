@@ -190,7 +190,7 @@ void UpdateBattleCamera(int mode, VECTOR *primaryTarget, VECTOR *secondaryTarget
     scratch->fighterPos[1].vz = secondaryTarget->vz;
 
     /* both arms are the same in the original */
-    if (mode == 0) {
+    if (mode == BATTLE_CAMERA_LIVE) {
         minPitch = 0x80;
         requiredPitch = 0x80;
     } else {
@@ -423,7 +423,7 @@ void UpdatePovCamera(Fighter *fighter)
     camera->angles.vz = 0;
 
     aim = -fighter->angles.heading;
-    if (fighter->climbState != 0 || fighter->flipHeadingNextTick != 0)
+    if (fighter->climbState != FIGHTER_CLIMB_NONE || fighter->flipHeadingNextTick != 0)
         adjustment = aim + ANGLE_HALF;
     else
         adjustment = aim;

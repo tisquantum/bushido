@@ -12,7 +12,7 @@ records are in `include/fighter_ai.h`; the state lives in the first fields of th
 
 1. On first use, `LoadAiAttackTables` takes the fighter's three attack lists, one per stance, from the motion
    archive.
-2. `UpdateAiOscillator` advances a private angle and sets `aiRangeScale`, a factor near 1.0 by which every
+2. `UpdateAiOscillator` advances an internal angle and sets `aiRangeScale`, a factor near 1.0 by which every
    distance threshold below is multiplied: it wanders by up to 16 (1/256) either way, pulled toward 1.0 by the
    skill rating (at full skill it is exactly 1.0). It also notes whether the fighter stands more than 1000 below
    its opponent (`aiBelowOpponent`).
@@ -56,7 +56,7 @@ Each class has its own tendencies, Q12 chances in `gAiCharParamTable`; a roll su
 | 10 | 2048 | 2048 | 1024 | 2048 | 0 | 1536 |
 | 11 | 4096 | 4096 | 1280 | 4096 | 0 | 4096 |
 
-The record's fifth field, `unusedChance` (between Defence and Evade), is left out: only `RollAiUnusedChance`,
+The record's fifth field, `unreachedChance` (between Defence and Evade), is left out: only `RollAiUnusedChance`,
 which nothing calls, reads it.
 
 Two modes replace these. In Slash mode the defence and recovery chances are `1024 + 102 * level` times skill,
@@ -106,16 +106,24 @@ empty list sends the fighter running in. An entry may be limited to some classes
 start. In Slash bouts before the tenth, levels 0 to 8 each use one fixed script instead (`gAiSlashAttackScripts`;
 level 9 scores the list, so the table's tenth script is never used).
 
-**Defending** (`RunAiDefendOrEvade`): the fighter presses square (`PADRleft`) until the opponent's active frames
-pass or it is no longer guarding. The routine would choose a sidestep or backstep (`gAiEvadeScripts`) when the
-opponent's swing is vertical, but `IsWeaponSwingPlaneVertical` never returns true
-([oddities.md](oddities.md)); so the computer always guards, and those evasions are reached only from the other
-states.
+**Defending** (`RunAiDefendOrEvade`): steps through `AiEvadeStep` (`AI_EVADE_STEP_CHOOSE`,
+`AI_EVADE_STEP_START_SCRIPT`, `AI_EVADE_STEP_RETURN_IDLE`), picking an `AiEvadeChoice` (`AI_EVADE_GUARD` presses
+square, `PADRleft`, until the opponent's active frames pass or it is no longer guarding; `AI_EVADE_RETRY` retries on
+the next frame when neither neutral, downed nor crouching). The routine would choose a standing or downed evasion
+(`AI_EVADE_STAND_NONE`, `AI_EVADE_STAND_SIDESTEP_DOWN`, `AI_EVADE_STAND_SIDESTEP_UP`, `AI_EVADE_DOWNED_NONE`,
+`AI_EVADE_DOWNED_SIDESTEP_DOWN`, indexing `gAiEvadeScripts` by `evadeChoice - 1`, so choices 1 and 5 pass null
+scripts, choice 4 is never assigned and leaves `gAiEvadeScripts[3]`, `gAiScriptBackstep`, unreached, and
+`gAiEvadeScripts[6]`, `gAiScriptSidestepUp`, lies past the maximum choice 6) when the opponent's swing is vertical,
+but `IsWeaponSwingPlaneVertical` never returns true ([findings.md](../findings.md)); so the computer always guards,
+and those evasions are reached only from the other states.
 
-**Moving**: running in holds right and L1 (and R1 once running), flanks when blocked or stuck, presses triangle
-within 1200 and attacks a standing opponent when the distance is changing fast; flanking holds L1 with left
-and a side for about ten frames, then right and the same side for up to 90; on the ground the computer rolls to
-one side or the other by where its opponent is, strikes, or rises.
+**Moving**: the eleven single-script states step `aiSubStep` through `AiScriptStep` (`AI_SCRIPT_STEP_START`,
+`AI_SCRIPT_STEP_FINISH`), while sprint states use `aiSubStep` as a frame counter; running in holds right and L1 (and
+R1 once running), flanks when blocked or stuck, presses triangle within 1200 and attacks a standing opponent when
+the distance is changing fast; flanking (`RunAiFlankUp`, `RunAiFlankDown`, stepping `AiFlankStep`:
+`AI_FLANK_STEP_BACK_OUT`, `AI_FLANK_STEP_CIRCLE_IN`, `AI_FLANK_STEP_HOLD_OR_SWITCH`) holds L1 with left and a side
+for about ten frames, then right and the same side for up to 90; on the ground the computer rolls to one side or the
+other by where its opponent is, strikes, or rises.
 
 **Blade lock** (`RunAiBladeLock`): pressing circle at half the attack chance each frame; after the opponent
 slips while the computer leads, it waits 8 frames; once the opponent has the advantage, it tries to slip away
@@ -137,7 +145,7 @@ Katze ignores the attack lists. Its decisions (`RunAiIdleDecision`): out of roun
 the time (running, or one time in 16 by a backflip), and otherwise presses select half the time. With rounds
 left, when their number is at most a random 1 to 4, one time in 16 it backflips if within 3000 and else presses
 select. Otherwise it attacks if the attack roll passes at 60 percent; else, each on a coin toss after the last, it
-backflips, sidesteps up, sidesteps up (the same state again; [oddities.md](oddities.md)) or runs back, or does
+backflips, sidesteps up, sidesteps up (the same state again; [findings.md](../findings.md)) or runs back, or does
 nothing. Its attacks (`SelectAiAttackScript`) are R1 with circle
 against a downed opponent, R1 with triangle or a double circle within 3000, and further off one of the eight
 entries of `gAiKatzeAttackScripts`: seven scripts, the double circle listed twice.

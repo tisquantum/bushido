@@ -72,6 +72,20 @@
     (((buttons) & 0xfff) | ((unsigned int)((buttons) & PADLleft) >> 3) |                 \
      (((buttons) & (PADLup | PADLright | PADLdown)) << 1))
 
+enum MotionTriggerEdge {
+    MOTION_TRIGGER_EDGE_PRESSED  = 0,
+    MOTION_TRIGGER_EDGE_RELEASED = 1,
+    MOTION_TRIGGER_EDGE_HELD     = 2,
+    MOTION_TRIGGER_EDGE_NOT_HELD = 3
+};
+
+enum WallSlideStep {
+    WALL_SLIDE_INITIAL    = 0,
+    WALL_SLIDE_FALLBACK_Z = 1,
+    WALL_SLIDE_UNDO_Z     = 2,
+    WALL_SLIDE_DONE       = 3
+};
+
 static int FindPracticeRespawnPos(Fighter *fighter, WorldVector *outPos)
 {
     int floorY;
@@ -292,9 +306,7 @@ void InitFighterForScene(int stageId, int prevStageId, int side, int isCpu,
     int jumpSpeedY, statureScale, cpuFlag;
     int hardDifficulty, aiSkill;
     StageTransition *transition;
-    int deltaX, oldY, deltaY, oldZ, deltaZ, movedX, movedZ;
-    int destX, spanX, adjustX, destZ, spanZ, baseDeltaX, baseDeltaZ;
-    int adjustedDeltaX, anchorYBefore, anchorDeltaY, anchorZBefore, anchorDeltaZ;
+    int adjustX;
     WorldVector lookAt, delta;
 
     fighter = &gFighters[side];
@@ -516,17 +528,17 @@ void InitFighterForScene(int stageId, int prevStageId, int side, int isCpu,
         statureScale = fighter->statureScale;
         ScaleFighterHitSpheres(side, statureScale);
         cpuFlag = fighter->isCpu;
-        fighter->fallState = 0;
+        fighter->fallState = FIGHTER_FALL_NONE;
         fighter->pendingFallAction = FORCED_ACTION_NONE;
-        fighter->climbState = 0;
+        fighter->climbState = FIGHTER_CLIMB_NONE;
         fighter->flipHeadingNextTick = 0;
-        fighter->jumpState = 0;
+        fighter->jumpState = FIGHTER_JUMP_NONE;
         fighter->rootFreezeState = 0;
         fighter->animFrameStalled = 0;
         fighter->onSlopeBand = 0;
         fighter->poseBlendWeight = 0;
         fighter->runSpeed = 0;
-        fighter->prevFacingState = 0;
+        fighter->prevFacingState = MOTION_FACING_AUTO;
         fighter->faceExpression = FIGHTER_FACE_NORMAL;
         if (cpuFlag != 0) {
             hardDifficulty = gOptionDifficulty;
@@ -540,50 +552,32 @@ void InitFighterForScene(int stageId, int prevStageId, int side, int isCpu,
         adjustZ = 0;
         transition = gPendingTransition;
         index = transition->stageA != stageId;
-        deltaX = transition->anchors[index].x - transition->anchors[!index].x;
-        delta.x = deltaX;
+        delta.x = transition->anchors[index].x - transition->anchors[!index].x;
         delta.y = transition->anchors[index].y - transition->anchors[!index].y;
         delta.z = transition->anchors[index].z - transition->anchors[!index].z;
-        fighter->position.vx += deltaX;
-        oldY = fighter->position.vy;
-        deltaY = delta.y;
-        oldZ = fighter->position.vz;
-        fighter->position.vy = oldY + deltaY;
-        deltaZ = delta.z;
-        movedX = fighter->position.vx;
-        movedZ = oldZ + deltaZ;
-        fighter->position.vz = movedZ;
-        destX = transition->anchors[index].x;
-        spanX = transition->width;
+        fighter->position.vx += delta.x;
+        fighter->position.vy += delta.y;
+        fighter->position.vz += delta.z;
         adjustX = 0;
-        if (movedX < destX + 100) {
+        if (fighter->position.vx < transition->anchors[index].x + 100) {
             adjustX = 100;
         }
-        if (destX + spanX - 100 < movedX) {
+        if (transition->anchors[index].x + transition->width - 100 < fighter->position.vx) {
             adjustX -= 100;
         }
-        destZ = transition->anchors[index].z;
-        if (movedZ < destZ + 100) {
+        if (fighter->position.vz < transition->anchors[index].z + 100) {
             adjustZ = 100;
         }
-        spanZ = transition->depth;
-        if (destZ + spanZ - 100 < movedZ) {
+        if (transition->anchors[index].z + transition->depth - 100 < fighter->position.vz) {
             adjustZ -= 100;
         }
-        fighter->position.vx = movedX + adjustX;
+        fighter->position.vx += adjustX;
         fighter->position.vz += adjustZ;
-        baseDeltaX = delta.x;
-        baseDeltaZ = delta.z;
-        adjustedDeltaX = baseDeltaX + adjustX;
         delta.x += adjustX;
-        delta.z = baseDeltaZ + adjustZ;
-        fighter->anchor.vx += adjustedDeltaX;
-        anchorYBefore = fighter->anchor.vy;
-        anchorDeltaY = delta.y;
-        fighter->anchor.vy = anchorYBefore + anchorDeltaY;
-        anchorZBefore = fighter->anchor.vz;
-        anchorDeltaZ = delta.z;
-        fighter->anchor.vz = anchorZBefore + anchorDeltaZ;
+        delta.z += adjustZ;
+        fighter->anchor.vx += delta.x;
+        fighter->anchor.vy += delta.y;
+        fighter->anchor.vz += delta.z;
         for (pointIndex = 0; pointIndex < 4; ++pointIndex) {
             fighter->prevWeaponPoints[pointIndex].x += delta.x;
             fighter->prevWeaponPoints[pointIndex].y += delta.y;
@@ -673,7 +667,7 @@ void StartFighterFallFromLedge(Fighter *fighter)
 
     isBackHit = 0;
     fighter->fallGravityTicks = 0;
-    if (fighter->climbState != 0) {
+    if (fighter->climbState != FIGHTER_CLIMB_NONE) {
         angle = fighter->savedAngles.heading + ANGLE_HALF;
         fighter->knockbackDir.vx = -gSinLutQ12[angle & ANGLE_MASK];
         fighter->knockbackDir.vz = -gSinLutQ12[(angle + ANGLE_QUARTER) & ANGLE_MASK];
@@ -700,11 +694,11 @@ void StartFighterFallFromLedge(Fighter *fighter)
 
     if (fighter->action == FIGHTER_ACTION_DOWNED ||
         (fighter->action == FIGHTER_ACTION_ATTACK && (fighter->animInfo->flags & ANIM_FLAG_DOWNED))) {
-        fighter->fallState = 2;
-    } else if (fighter->climbState != 0 && fighter->action != FIGHTER_ACTION_CLIMB) {
-        fighter->fallState = 1;
+        fighter->fallState = FIGHTER_FALL_BACKWARD;
+    } else if (fighter->climbState != FIGHTER_CLIMB_NONE && fighter->action != FIGHTER_ACTION_CLIMB) {
+        fighter->fallState = FIGHTER_FALL_FORWARD;
     } else {
-        fighter->fallState = isBackHit + 1;
+        fighter->fallState = isBackHit + FIGHTER_FALL_FORWARD;
     }
 
     if (gBladeLockState != BLADE_LOCK_NONE) {
@@ -816,7 +810,7 @@ static void UpdateFighterRunSteering(Fighter *fighter)
         fighter->anchor.vx += gSinLutQ12[fighter->angles.heading & ANGLE_MASK] * delta >> 16;
         fighter->anchor.vz += gSinLutQ12[(fighter->angles.heading + ANGLE_QUARTER) & ANGLE_MASK] * delta >> 16;
     } else if (fighter->runSpeed > 0) {
-        if (fighter->climbState == 0) {
+        if (fighter->climbState == FIGHTER_CLIMB_NONE) {
             fighter->turnRemaining = 0;
         }
         fighter->runSpeed = 0;
@@ -839,7 +833,12 @@ void TryStartWallBumpStumble(Fighter *fighter, int x, int z)
     if (fighter->frameDelta.vx * fighter->frameDelta.vx + fighter->frameDelta.vz * fighter->frameDelta.vz <= 25600)
         return;
 
-    QUERY_FLOOR_BAND(x, fighter->position.vy - 1000, z, floorHeight, lowerFloorBand, upperFloorBand);
+    floorHeight = QueryFloorHeight(x, fighter->position.vy - 1000, z);
+    if (floorHeight != FLOOR_QUERY_MISS) {
+        floorHeight &= -8;
+        lowerFloorBand = FLOOR_BAND_BELOW(floorHeight);
+        upperFloorBand = FLOOR_BAND_ABOVE(floorHeight);
+    }
 
     if (!(GetLastFloorAttr() & FLOOR_ATTR_NO_IMPACT)) {
         fighter->pendingAction = FORCED_ACTION_HEAD_ON_STUMBLE;
@@ -896,7 +895,7 @@ void ClampFighterMaxSeparation(Fighter *fighter, FighterMotionScratch *proposal)
 
 static int gWallSlideAxisFallback;
 
-/* returns no value when mode is not 0, 1 or 2 */
+/* returns no value when mode is not WALL_SLIDE_INITIAL, WALL_SLIDE_FALLBACK_Z or WALL_SLIDE_UNDO_Z */
 int SlideFighterAlongObstacle(Fighter *fighter, FighterMotionScratch *contact, int floorHeight, int mode)
 {
     int dx;
@@ -908,7 +907,7 @@ int SlideFighterAlongObstacle(Fighter *fighter, FighterMotionScratch *contact, i
     int sinVal;
     int cosVal;
 
-    if (mode == 0) {
+    if (mode == WALL_SLIDE_INITIAL) {
         dx = contact->dest.x - fighter->position.vx;
         dz = contact->dest.z - fighter->position.vz;
         fighter->anchor.vx -= dx;
@@ -944,26 +943,26 @@ int SlideFighterAlongObstacle(Fighter *fighter, FighterMotionScratch *contact, i
                 contact->dest.z += contact->slideVz;
             }
         }
-        return 1;
+        return WALL_SLIDE_FALLBACK_Z;
     }
-    if (mode == 1) {
+    if (mode == WALL_SLIDE_FALLBACK_Z) {
         if (gWallSlideAxisFallback != 0) {
             fighter->anchor.vx -= contact->slideVx;
             contact->dest.x -= contact->slideVx;
             fighter->anchor.vz += contact->slideVz;
             contact->dest.z += contact->slideVz;
-            return 2;
+            return WALL_SLIDE_UNDO_Z;
         }
         fighter->anchor.vx -= contact->slideVx;
         contact->dest.x -= contact->slideVx;
         fighter->anchor.vz -= contact->slideVz;
         contact->dest.z -= contact->slideVz;
-        return 3;
+        return WALL_SLIDE_DONE;
     }
-    if (mode == 2) {
+    if (mode == WALL_SLIDE_UNDO_Z) {
         fighter->anchor.vz -= contact->slideVz;
         contact->dest.z -= contact->slideVz;
-        return 3;
+        return WALL_SLIDE_DONE;
     }
 }
 
@@ -998,7 +997,7 @@ static void ResolveFighterFloorMovement(Fighter *fighter, FighterMotionScratch *
         distance = ((unsigned int)squared << 16) >> (19 - (shift >> 1));
     }
 
-    slideStage = 0;
+    slideStage = WALL_SLIDE_INITIAL;
     for (;;) {
         if (fighter->onSlopeBand == 0 && (height == FLOOR_HEIGHT_NONE ||
                 (contact->normal->vy > FLOOR_WALKABLE_NORMAL_Y && contact->normal->vy < -FLOOR_WALKABLE_NORMAL_Y))) {
@@ -1009,7 +1008,7 @@ static void ResolveFighterFloorMovement(Fighter *fighter, FighterMotionScratch *
                 fighter->position.vy = fighter->groundY + fighter->rootOffset.y;
                 fighter->anchor.vy = fighter->groundY;
                 slideStage = SlideFighterAlongObstacle(fighter, contact, height, slideStage);
-                if (slideStage == 3) {
+                if (slideStage == WALL_SLIDE_DONE) {
                     break;
                 }
             } else if (fighter->groundY < upper) {
@@ -1035,7 +1034,7 @@ static void ResolveFighterFloorMovement(Fighter *fighter, FighterMotionScratch *
             fighter->position.vy = fighter->groundY + fighter->rootOffset.y;
             fighter->anchor.vy = fighter->groundY;
             slideStage = SlideFighterAlongObstacle(fighter, contact, height, slideStage);
-            if (slideStage == 3) {
+            if (slideStage == WALL_SLIDE_DONE) {
                 break;
             }
         } else {
@@ -1079,7 +1078,7 @@ static void ResolveFighterFloorMovement(Fighter *fighter, FighterMotionScratch *
             fighter->position.vy = fighter->groundY + fighter->rootOffset.y;
             fighter->anchor.vy = fighter->groundY;
             slideStage = SlideFighterAlongObstacle(fighter, contact, height, slideStage);
-            if (slideStage == 3) {
+            if (slideStage == WALL_SLIDE_DONE) {
                 break;
             }
         }
@@ -1090,7 +1089,7 @@ static void ResolveFighterFloorMovement(Fighter *fighter, FighterMotionScratch *
         contact->normal = (SVECTOR *)GetLastFloorNormal();
     }
 
-    if (slideStage > 0) {
+    if (slideStage > WALL_SLIDE_INITIAL) {
         dx = fighter->position.vx - oldX;
         dz = fighter->position.vz - oldZ;
         fighter->shadowGroundY = fighter->groundY;
@@ -1306,9 +1305,9 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     fighter->motionJustChanged = 0;
     UpdateFighterAnimSpeed(fighter);
     if (fighter->action != FIGHTER_ACTION_DEAD) {
-        if (fighter->fallState != 0) {
+        if (fighter->fallState != FIGHTER_FALL_NONE) {
             fighter->animFrac += ONE;
-        } else if (fighter->climbState != 0) {
+        } else if (fighter->climbState != FIGHTER_CLIMB_NONE) {
             fighter->animFrac += fighter->animSpeed < 0x880 ? 0x880 : fighter->animSpeed;
         } else if (fighter->poseBlendWeight > 0) {
             fighter->animFrac += ONE;
@@ -1328,7 +1327,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             gSubtitleActive = 0;
 #endif
         }
-        if (fighter->isCpu != 0 && fighter->climbState != 0) {
+        if (fighter->isCpu != 0 && fighter->climbState != FIGHTER_CLIMB_NONE) {
             if (fighter->pendingAction == FORCED_ACTION_STAGGER_FRONT ||
                 fighter->pendingAction == FORCED_ACTION_STAGGER_BACK ||
                 fighter->pendingAction == FORCED_ACTION_LEG_CRIPPLE ||
@@ -1349,7 +1348,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
         SetFighterMotionPlacement(fighter, fighter->placement->actionTable[fighter->pendingAction]);
         fighter->lastForcedAction = fighter->pendingAction;
         fighter->pendingAction = FORCED_ACTION_NONE;
-        if (fighter->climbState == 0 && fighter->fallState == 0) {
+        if (fighter->climbState == FIGHTER_CLIMB_NONE && fighter->fallState == FIGHTER_FALL_NONE) {
             if (fighter->prevFacingState == MOTION_FACING_SUPINE_FLIP) {
                 StartFighterPoseBlend(fighter, 0x400);
                 FlipPoseFromSupineState(fighter->savedPose.joint);
@@ -1398,16 +1397,16 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                     }
                 }
                 switch (triggerMask >> MOTION_TRIGGER_EDGE_SHIFT & MOTION_TRIGGER_EDGE_MASK) {
-                case 0:
+                case MOTION_TRIGGER_EDGE_PRESSED:
                     value = fighter->currentInput.pressed;
                     break;
-                case 1:
+                case MOTION_TRIGGER_EDGE_RELEASED:
                     value = fighter->currentInput.released;
                     break;
-                case 2:
+                case MOTION_TRIGGER_EDGE_HELD:
                     value = fighter->currentInput.held;
                     break;
-                case 3:
+                case MOTION_TRIGGER_EDGE_NOT_HELD:
                     value = fighter->currentInput.notHeld;
                     break;
                 }
@@ -1448,7 +1447,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
         }
     }
     if (fighter->pendingFallAction != FORCED_ACTION_NONE) {
-        if (fighter->climbState == 0) {
+        if (fighter->climbState == FIGHTER_CLIMB_NONE) {
             fighter->frozenRootOffset.x = 0;
             fighter->frozenRootOffset.y = fighter->prevRootOffset.y;
             fighter->frozenRootOffset.z = 0;
@@ -1468,15 +1467,15 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
         fighter->pendingFallAction = FORCED_ACTION_NONE;
         if (fighter->facingState != MOTION_FACING_INVERTED) {
             StartFighterPoseBlend(fighter, 0x400);
-            if (fighter->climbState != 0) {
+            if (fighter->climbState != FIGHTER_CLIMB_NONE) {
                 FlipPoseForClimbTransition(fighter->savedPose.joint);
-                fighter->climbState = 0;
+                fighter->climbState = FIGHTER_CLIMB_NONE;
                 fighter->angles.heading += ANGLE_HALF;
                 fighter->savedAngles.heading = fighter->angles.heading;
             }
         }
     }
-    if (fighter->climbState == 0
+    if (fighter->climbState == FIGHTER_CLIMB_NONE
 #ifndef VERSION_JP
         && gBladeLockState == BLADE_LOCK_NONE
 #endif
@@ -1487,7 +1486,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                     if (fighter->action == FIGHTER_ACTION_NEUTRAL ||
                         fighter->lastForcedAction == FORCED_ACTION_HEAD_ON_STUMBLE && fighter->motionJustChanged != 0) {
                         if (CanClimbRecordedLedge(fighter) != 0) {
-                            fighter->climbState = 1;
+                            fighter->climbState = FIGHTER_CLIMB_START;
                             climbHeading = ratan2(fighter->wallContactNormal.vx,
                                                   fighter->wallContactNormal.vz) + ANGLE_HALF;
                             fighter->savedAngles.heading = climbHeading;
@@ -1539,14 +1538,14 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             if (fighter->action != FIGHTER_ACTION_NEUTRAL ||
                 ((fighter->animInfo->flags & ANIM_FLAG_WALK) == 0 &&
                  (fighter->animInfo->flags & ANIM_FLAG_DOWNED) == 0)) {
-                if (fighter->climbState == 0) {
+                if (fighter->climbState == FIGHTER_CLIMB_NONE) {
                     StartFighterPoseBlend(fighter, 0x400);
                 }
             }
         }
         if (fighter->prevAction == FIGHTER_ACTION_CROUCH && (fighter->prevAnimInfo->flags & ANIM_FLAG_WALK) != 0) {
             if (fighter->action != fighter->prevAction || (fighter->animInfo->flags & ANIM_FLAG_WALK) == 0) {
-                if (fighter->climbState == 0) {
+                if (fighter->climbState == FIGHTER_CLIMB_NONE) {
                     StartFighterPoseBlend(fighter, 0x400);
                 }
             }
@@ -1626,7 +1625,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                 (fighter->animInfo->flags & (ANIM_FLAG_WALK | ANIM_FLAG_DOWNED)) != 0) {
                 fighter->lockedMoveHeading = fighter->angleToOpponent;
             }
-            if (fighter->climbState == 0) {
+            if (fighter->climbState == FIGHTER_CLIMB_NONE) {
                 if (fighter->prevAction == FIGHTER_ACTION_NEUTRAL &&
                     (fighter->prevAnimInfo->flags & ANIM_FLAG_DOWNED) != 0) {
                     SetFighterTurnTarget(fighter, fighter->angleToOpponent);
@@ -1640,8 +1639,8 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     fighter->angles.heading += work;
     fighter->lastTurnStep = work;
     fighter->turnRemaining -= work;
-    if (fighter->climbState == 0) {
-        if (fighter->fallState == 0) {
+    if (fighter->climbState == FIGHTER_CLIMB_NONE) {
+        if (fighter->fallState == FIGHTER_FALL_NONE) {
             fighter->savedAngles.heading = fighter->angles.heading;
         }
     }
@@ -1677,7 +1676,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                 } else if (fighter->action == FIGHTER_ACTION_ATTACK &&
                            (fighter->placement->flags & MOTION_FLAG_BLEND_ON_EXIT) != 0) {
                     nextFrame = frame;
-                } else if (fighter->action == FIGHTER_ACTION_BLEND || fighter->climbState == 3) {
+                } else if (fighter->action == FIGHTER_ACTION_BLEND || fighter->climbState == FIGHTER_CLIMB_TOP) {
                     nextFrame = frame;
                 } else {
                     forwardPlacement = fighter->placement->nextPlacement;
@@ -1840,7 +1839,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     fighter->anchor.vx += fighter->velocity.x;
     fighter->anchor.vy += fighter->velocity.y;
     fighter->anchor.vz += fighter->velocity.z;
-    if (fighter->jumpState != 0) {
+    if (fighter->jumpState != FIGHTER_JUMP_NONE) {
         fighter->anchor.vx += fighter->jumpVel.x;
         fighter->anchor.vy += fighter->jumpVel.y;
         fighter->anchor.vz += fighter->jumpVel.z;
@@ -1904,20 +1903,20 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     QUERY_FLOOR_BAND(scratch->dest.x, scratch->dest.y - 1000, scratch->dest.z,
                      work, floor, ceiling);
     scratch->normal = (SVECTOR *)GetLastFloorNormal();
-    if (fighter->jumpState == 0) {
+    if (fighter->jumpState == FIGHTER_JUMP_NONE) {
         homing = 0;
         if (fighter->action == FIGHTER_ACTION_ATTACK) {
             homing = fighter->animInfo->flags >> 5 & 1;
         }
         fighter->isHomingJump = homing;
         if (fighter->isHomingJump != 0 || fighter->action == FIGHTER_ACTION_JUMP) {
-            fighter->jumpState = 1;
+            fighter->jumpState = FIGHTER_JUMP_LAUNCH;
         }
     }
     if (gBladeLockState != BLADE_LOCK_NONE) {
         UpdateBladeLockInput(fighter);
     }
-    if (fighter->jumpState == 1) {
+    if (fighter->jumpState == FIGHTER_JUMP_LAUNCH) {
         if (floor < fighter->groundY) {
             fighter->position.vy = fighter->groundY + fighter->rootOffset.y;
             fighter->anchor.vx -= scratch->dest.x - fighter->position.vx;
@@ -1926,7 +1925,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             *(WorldVector *)&fighter->position = scratch->dest;
             fighter->groundY = work;
         }
-        fighter->jumpState = 2;
+        fighter->jumpState = FIGHTER_JUMP_AIRBORNE;
         if (fighter->isHomingJump != 0) {
             fighter->jumpVel.y = fighter->jumpLaunchParams[0] * 70 / 100;
             SolveBallisticJumpVelocity((VECTOR *)&fighter->torsoCenter, (VECTOR *)&opponent->torsoCenter,
@@ -1943,7 +1942,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             fighter->jumpVel.y = fighter->jumpLaunchParams[0];
         }
         fighter->shadowGroundY = work;
-    } else if (fighter->jumpState == 2) {
+    } else if (fighter->jumpState == FIGHTER_JUMP_AIRBORNE) {
         fighter->jumpVel.y += 62;
         airClearance = fighter->statureScale * 225 >> 10;
         if (scratch->dest.y + airClearance >= work) {
@@ -2014,7 +2013,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                 fighter->position.vy = work - airClearance;
                 fighter->onSlopeBand = ceiling != floor;
                 fighter->position.vz = landZ;
-                fighter->jumpState = 0;
+                fighter->jumpState = FIGHTER_JUMP_NONE;
                 fighter->anchor.vy = work;
                 fighter->groundY = work;
                 if (fighter->action == FIGHTER_ACTION_JUMP || fighter->isHomingJump != 0) {
@@ -2034,13 +2033,13 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             *(WorldVector *)&fighter->position = scratch->dest;
         }
         if (fighter->animFrame == fighter->placement->frameLimit - 1) {
-            if (fighter->jumpState != 0) {
+            if (fighter->jumpState != FIGHTER_JUMP_NONE) {
                 fighter->animFrame--;
             }
         }
         fighter->shadowGroundY = fighter->groundY;
     } else {
-        if (fighter->climbState != 0) {
+        if (fighter->climbState != FIGHTER_CLIMB_NONE) {
             fighter->surfaceFlags = GetLastFloorAttr();
             fighter->position.vy = scratch->dest.y;
             if (work < scratch->dest.y + fighter->statureScale * 500 / ONE) {
@@ -2053,31 +2052,31 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             if (fighter->action != FIGHTER_ACTION_CLIMB) {
                 if (work == fighter->groundY - FLOOR_BAND_HEIGHT) {
                     fighter->groundY = work;
-                    fighter->climbState = 0;
+                    fighter->climbState = FIGHTER_CLIMB_NONE;
                     fighter->flipHeadingNextTick = 1;
                 } else {
-                    fighter->climbState = 0;
+                    fighter->climbState = FIGHTER_CLIMB_NONE;
                     fighter->flipHeadingNextTick = 1;
                     fighter->fallGravityTicks = 0;
-                    fighter->fallState = 1;
+                    fighter->fallState = FIGHTER_FALL_FORWARD;
                 }
-            } else if (fighter->climbState >= 2 && work == fighter->groundY) {
+            } else if (fighter->climbState >= FIGHTER_CLIMB_ASCEND && work == fighter->groundY) {
                 StartFighterFallFromLedge(fighter);
             } else if (fighter->animFrame == fighter->placement->frameLimit - 1) {
                 fighter->animFrac = ONE - 1;
-                if (++fighter->climbState == 4) {
+                if (++fighter->climbState == FIGHTER_CLIMB_FINISH) {
                     QUERY_FLOOR_BAND(fighter->position.vx, fighter->position.vy - 1000, fighter->position.vz,
                                      work, floor, ceiling);
                     ledgeTop = fighter->groundY - FLOOR_BAND_HEIGHT;
                     if (work == ledgeTop) {
-                        fighter->climbState = 0;
+                        fighter->climbState = FIGHTER_CLIMB_NONE;
                         fighter->flipHeadingNextTick = 1;
                         fighter->groundY = floor;
                     } else if (ledgeTop < work) {
                         fighter->groundY = ledgeTop;
                         StartFighterFallFromLedge(fighter);
                     } else if (work == FLOOR_HEIGHT_NONE) {
-                        fighter->climbState = 0;
+                        fighter->climbState = FIGHTER_CLIMB_NONE;
                         fighter->flipHeadingNextTick = 1;
 
                         QUERY_FLOOR_BAND(fighter->position.vx, fighter->position.vy - 1000, fighter->position.vz,
@@ -2119,7 +2118,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                         } while (work < fighter->groundY - FLOOR_BAND_HEIGHT);
                         if (work == fighter->groundY - FLOOR_BAND_HEIGHT) {
                             fighter->flipHeadingNextTick = 1;
-                            fighter->climbState = 0;
+                            fighter->climbState = FIGHTER_CLIMB_NONE;
                             fighter->groundY = floor;
                             fighter->anchor.vx = fighter->position.vx - fighter->rootOffset.x;
                             fighter->anchor.vz = fighter->position.vz - fighter->rootOffset.z;
@@ -2133,9 +2132,9 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             fighter->savedAngles.heading = fighter->angles.heading;
         } else {
             fallState = fighter->fallState;
-            if (fallState != 0) {
+            if (fallState != FIGHTER_FALL_NONE) {
                 fallStature = fighter->statureScale;
-                if (fallState == 1) {
+                if (fallState == FIGHTER_FALL_FORWARD) {
                     fallClearance = fallStature * 175 >> 10;
                 } else {
                     fallClearance = fallStature * 25 >> 9;
@@ -2201,14 +2200,14 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                         fallLandNormalY = scratch->normal->vy;
                         if (fallLandNormalY < FLOOR_WALKABLE_NORMAL_Y && scratch->dest.y + fallClearance >= work) {
                             TriggerFighterRumble(fighter, RUMBLE_LANDING);
-                            if (fighter->fallState == 2) {
+                            if (fighter->fallState == FIGHTER_FALL_BACKWARD) {
                                 wounds = (unsigned short)fighter->torsoWoundCount;
                                 fighter->torsoWoundCount = wounds + 1;
                                 if (fighter->groundY + FLOOR_BAND_HEIGHT < work) {
                                     fighter->torsoWoundCount = wounds + 2;
                                 }
                             }
-                            fighter->fallState = 0;
+                            fighter->fallState = FIGHTER_FALL_NONE;
                             fighter->position.vx = scratch->dest.x;
                             fallLandZ = scratch->dest.z;
                             fighter->position.vy = work - fallClearance;
@@ -2235,7 +2234,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                     *(WorldVector *)&fighter->position = scratch->dest;
                     fighter->groundY = work;
                 }
-                if (fighter->fallState != 0) {
+                if (fighter->fallState != FIGHTER_FALL_NONE) {
                     if (fighter->animFrame == fighter->placement->frameLimit - 1) {
                         fighter->animFrame--;
                         fighter->velocity.y += 500;

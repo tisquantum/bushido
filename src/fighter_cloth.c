@@ -23,8 +23,6 @@
 #define CLOTH_WIND_DEFAULT_MAGNITUDE 1024
 #define CLOTH_VERTEX_WEIGHT_FREE (-256)
 
-#define CLOTH_WEIGHTS_EMPTY (&gClothWeightsDemoRedShadow[86])
-
 /* Each character's cloth weights: for each of its meshes in order, runs of { count, weight,
  * vertex index... } ended by CLOTH_WEIGHT_END_MESH; the list ended by CLOTH_WEIGHT_END_LIST. */
 short gClothWeightsKannuki[44] = {
@@ -214,9 +212,7 @@ short gClothWeightsDemoBlackLotus[52] = {
     0,
 };
 
-/* Character 34's list, then the empty list every character without cloth shares. */
-/* kept: as its own object the empty list is 4 bytes, which go to small data and move the data after them */
-short gClothWeightsDemoRedShadow[88] = {
+short gClothWeightsDemoRedShadow[86] = {
     CLOTH_WEIGHT_END_MESH, CLOTH_WEIGHT_END_MESH, CLOTH_WEIGHT_END_MESH,
     8, 0, 0, 1, 2, 3, 4, 5, 6, 7, CLOTH_WEIGHT_END_MESH,
     8, 0, 0, 1, 2, 3, 4, 5, 6, 7, CLOTH_WEIGHT_END_MESH,
@@ -227,7 +223,11 @@ short gClothWeightsDemoRedShadow[88] = {
     8, 0, 0, 1, 2, 3, 4, 5, 6, 7, 4, -100, 8, 9, 10, 11, 4, -100, 12, 13, 14, 15, CLOTH_WEIGHT_END_MESH,
     CLOTH_WEIGHT_END_LIST,
     0,
-    CLOTH_WEIGHT_END_LIST, /* CLOTH_WEIGHTS_EMPTY */
+};
+
+/* Empty weight list shared by every character without cloth; unsized so it stays in .data. */
+static short gClothWeightsEmpty[] = {
+    CLOTH_WEIGHT_END_LIST,
     0,
 };
 
@@ -254,26 +254,26 @@ static int sUnusedClothWindWord; /* 4 bytes; nothing reads or writes them */
 /* Indexed by character archive (0..40). */
 short *gCharClothMeshLists[41] = {
     gClothWeightsKannuki, gClothWeightsMikado,
-    gClothWeightsBlackLotus, CLOTH_WEIGHTS_EMPTY,
+    gClothWeightsBlackLotus, gClothWeightsEmpty,
     gClothWeightsRedShadow, gClothWeightsUtsusemi,
     gClothWeightsKannukiAlt, gClothWeightsMikadoAlt,
     gClothWeightsBlackLotusAlt, gClothWeightsTatsumiAlt,
     gClothWeightsRedShadowAlt, gClothWeightsUtsusemiAlt,
     gClothWeightsFinalBoss, gClothWeightsFinalBossAlt,
-    CLOTH_WEIGHTS_EMPTY, gClothWeightsBout8Boss,
+    gClothWeightsEmpty, gClothWeightsBout8Boss,
     gClothWeightsBout6Boss, gClothWeightsBout7Boss,
-    CLOTH_WEIGHTS_EMPTY, CLOTH_WEIGHTS_EMPTY,
-    CLOTH_WEIGHTS_EMPTY, CLOTH_WEIGHTS_EMPTY,
-    gClothWeightsFourthSlashEnemy, CLOTH_WEIGHTS_EMPTY,
-    CLOTH_WEIGHTS_EMPTY, CLOTH_WEIGHTS_EMPTY,
-    CLOTH_WEIGHTS_EMPTY, CLOTH_WEIGHTS_EMPTY,
-    CLOTH_WEIGHTS_EMPTY, CLOTH_WEIGHTS_EMPTY,
-    CLOTH_WEIGHTS_EMPTY, CLOTH_WEIGHTS_EMPTY,
+    gClothWeightsEmpty, gClothWeightsEmpty,
+    gClothWeightsEmpty, gClothWeightsEmpty,
+    gClothWeightsFourthSlashEnemy, gClothWeightsEmpty,
+    gClothWeightsEmpty, gClothWeightsEmpty,
+    gClothWeightsEmpty, gClothWeightsEmpty,
+    gClothWeightsEmpty, gClothWeightsEmpty,
+    gClothWeightsEmpty, gClothWeightsEmpty,
     gClothWeightsDemoKannuki, gClothWeightsDemoBlackLotus,
-    gClothWeightsDemoRedShadow, CLOTH_WEIGHTS_EMPTY,
-    CLOTH_WEIGHTS_EMPTY, CLOTH_WEIGHTS_EMPTY,
-    CLOTH_WEIGHTS_EMPTY, CLOTH_WEIGHTS_EMPTY,
-    CLOTH_WEIGHTS_EMPTY,
+    gClothWeightsDemoRedShadow, gClothWeightsEmpty,
+    gClothWeightsEmpty, gClothWeightsEmpty,
+    gClothWeightsEmpty, gClothWeightsEmpty,
+    gClothWeightsEmpty,
 };
 /* Halfword offset to the packed 4-byte vertex-index word in a mesh primitive record, indexed by (primType >> 2) & 7. */
 short gPrimVertexIndexOffsets[8] = { 20, 32, 24, 40, 28, 40, 36, 52 };

@@ -25,10 +25,11 @@ game's. ([building.md](building.md) says how this linker was identified.) So the
 original executable is a trace of the authors' names, and a candidate name can be tested: it must hash into the
 range of buckets its neighbours leave open.
 
-The rule was checked before it was used. The 62 library commons, whose names are Sony's and known, ascend
-through the buckets with no exception, from `_svm_okon1` (bucket 6) to `_svm_okof2` (bucket 511). Both pairs of
-them that share a bucket obey last-entered-first: `_snd_seq_t_max` (LIBSND) precedes `StEmu_Addr` (LIBCD), and
-the linker read LIBCD first; `StRingBase` precedes `StRingAddr`, the later of the two in LIBCD's dictionary.
+The rule was checked before it was used. The 63 library commons, whose names are Sony's and known, ascend
+through the buckets with no exception, from `_svm_okon1` (bucket 6) to `_svm_okof2` (bucket 511). All three pairs
+of them that share a bucket obey last-entered-first: `SpuCommonError` (LIBSPU) precedes `StRingIdx3` (LIBCD), and
+`_snd_seq_t_max` (LIBSND) precedes `StEmu_Addr` (LIBCD), because the linker read LIBCD before LIBSND and LIBSPU;
+`StRingBase` precedes `StRingAddr`, the later of the two in LIBCD's dictionary.
 
 A global between two library commons is pinned to the buckets between theirs. A candidate's chance of fitting
 by accident is the width of that interval over 512, multiplied by the number of candidates tried; every
@@ -73,7 +74,7 @@ declaration, and the linker puts the last entered first). Two large commons are 
 | Name | Unit | Bucket | Interval left by its neighbours |
 | --- | --- | ---: | --- |
 | `slot_dir` | `memcard_io.c` | 360 | 359 to 362, between `_svm_cur` (358) and `_svm_vab_used` (362) |
-| `seq_table` | `sound.c` | 441 | exactly 441, between `StRingIdx2` (440) and `StRingIdx3` (441), before the latter as a later entry must be |
+| `seq_table` | `sound.c` | 441 | exactly 441, between `StRingIdx2` (440) and `SpuCommonError` (441), before the latter as a later entry must be |
 
 The memory card globals were also tested in uppercase (`SLOT_DIR` 136, `CARD_STS` 123, `CARD_STS_TMP` 463,
 `EVENT_TIME_OUT` 117, `FILE_DSCRPTR` 429): every one falls out of order, where the spellings above fit.

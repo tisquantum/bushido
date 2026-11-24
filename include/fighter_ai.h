@@ -108,7 +108,7 @@ typedef struct AiCharParams {
     short leap;
     short attack;
     short defense;
-    short unusedChance; /* read only by RollAiUnusedChance, which nothing calls */
+    short unreachedChance; /* read only by RollAiUnusedChance, which nothing calls */
     short evade;
     short recovery;
 } AiCharParams;

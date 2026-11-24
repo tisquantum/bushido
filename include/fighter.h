@@ -185,6 +185,29 @@ typedef enum FighterWeaponGrip {
     FIGHTER_GRIP_TWO_HANDED = 2
 } FighterWeaponGrip;
 
+/* Fighter.climbState ledge-climb progression. */
+typedef enum FighterClimbState {
+    FIGHTER_CLIMB_NONE = 0,
+    FIGHTER_CLIMB_START = 1,
+    FIGHTER_CLIMB_ASCEND = 2,
+    FIGHTER_CLIMB_TOP = 3,
+    FIGHTER_CLIMB_FINISH = 4
+} FighterClimbState;
+
+/* Fighter.fallState ledge-fall progression. */
+typedef enum FighterFallState {
+    FIGHTER_FALL_NONE = 0,
+    FIGHTER_FALL_FORWARD = 1,
+    FIGHTER_FALL_BACKWARD = 2
+} FighterFallState;
+
+/* Fighter.jumpState jump progression. */
+typedef enum FighterJumpState {
+    FIGHTER_JUMP_NONE = 0,
+    FIGHTER_JUMP_LAUNCH = 1,
+    FIGHTER_JUMP_AIRBORNE = 2
+} FighterJumpState;
+
 /* Fighter.aiScratch: one AI state's working values; each state that reads them sets them first. */
 typedef union AiStateScratch {
     struct {

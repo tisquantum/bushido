@@ -693,26 +693,29 @@ void UpdateSlashClearCutsceneState(void)
     input.released = 0;
     input.pressed = 0;
     input.held = 0;
-    if (gStateFrameTimer < 90) {
-    } else if (gStateFrameTimer == 90) {
-        input.held = PADLleft;
-        input.pressed = PADLleft;
-    } else if (gStateFrameTimer < 92) {
-        input.held = PADLleft;
-    } else if (gStateFrameTimer == 92) {
-        input.released = PADLleft;
-    } else if (gStateFrameTimer < 94) {
-    } else if (gStateFrameTimer == 94) {
-        input.held = PADLleft;
-        input.pressed = PADLleft;
-    } else if (gStateFrameTimer < 96) {
-        input.held = PADLleft;
-    } else if (gStateFrameTimer == 96) {
-        input.released = PADLleft;
-    } else if (gStateFrameTimer < 150) {
-    } else if (gStateFrameTimer == 150) {
-        input.held = PADRup;
-        input.pressed = PADRup;
+    if (gStateFrameTimer >= 90) {
+        if (gStateFrameTimer == 90) {
+            input.held = PADLleft;
+            input.pressed = PADLleft;
+        } else if (gStateFrameTimer < 92) {
+            input.held = PADLleft;
+        } else if (gStateFrameTimer == 92) {
+            input.released = PADLleft;
+        } else if (gStateFrameTimer >= 94) {
+            if (gStateFrameTimer == 94) {
+                input.held = PADLleft;
+                input.pressed = PADLleft;
+            } else if (gStateFrameTimer < 96) {
+                input.held = PADLleft;
+            } else if (gStateFrameTimer == 96) {
+                input.released = PADLleft;
+            } else if (gStateFrameTimer >= 150) {
+                if (gStateFrameTimer == 150) {
+                    input.held = PADRup;
+                    input.pressed = PADRup;
+                }
+            }
+        }
     }
     input.notHeld = (~input.held) & 0xffff;
     UpdateFighterFrame(1, &input);

@@ -108,12 +108,12 @@ static int RegisterPointConstraint(ClothModel *model, int stiffnessDiv, int from
         return 0;
     }
     for (i = 0; i < model->points[from].outLinkCount; ++i) {
-        if (model->links[model->points[from].outLinks[i]].endpoints.indices.to == to) {
+        if (model->links[model->points[from].outLinks.indices[i]].endpoints.indices.to == to) {
             return 0;
         }
     }
     for (i = 0; i < model->points[from].inLinkCount; ++i) {
-        if (model->links[model->points[from].inLinks[i]].endpoints.indices.from == to) {
+        if (model->links[model->points[from].inLinks.indices[i]].endpoints.indices.from == to) {
             return 0;
         }
     }
@@ -124,8 +124,8 @@ static int RegisterPointConstraint(ClothModel *model, int stiffnessDiv, int from
     link->maxLength = length * 3;
     link->stiffnessDiv = stiffnessDiv;
     link->endpoints.packed = ((u_int)from << 16) | to;
-    model->points[from].outLinks[model->points[from].outLinkCount++] = model->linkCount;
-    model->points[to].inLinks[model->points[to].inLinkCount++] = model->linkCount;
+    model->points[from].outLinks.indices[model->points[from].outLinkCount++] = model->linkCount;
+    model->points[to].inLinks.indices[model->points[to].inLinkCount++] = model->linkCount;
     ++model->linkCount;
     return 1;
 }
@@ -651,13 +651,13 @@ void StepStageClothModel(ClothItem *item, ClothModel *model)
             fy = point->vy;
             fz = point->vz + CLOTH_SCRATCH->windForceZ;
             for (k = 0; k < point->outLinkCount; k++) {
-                linkForce = CLOTH_SCRATCH->linkForces[point->outLinks[k]];
+                linkForce = CLOTH_SCRATCH->linkForces[point->outLinks.indices[k]];
                 fx += linkForce[0];
                 fy += linkForce[1];
                 fz += linkForce[2];
             }
             for (k = 0; k < point->inLinkCount; k++) {
-                linkForce = CLOTH_SCRATCH->linkForces[point->inLinks[k]];
+                linkForce = CLOTH_SCRATCH->linkForces[point->inLinks.indices[k]];
                 fx -= linkForce[0];
                 fy -= linkForce[1];
                 fz -= linkForce[2];
@@ -1070,7 +1070,7 @@ void StepFighterClothModel(ClothItem *item, ClothModel *model)
             fx = point->vx + CLOTH_SCRATCH->windForceX;
             fy = point->vy;
             fz = point->vz + CLOTH_SCRATCH->windForceZ;
-            packedLinks = *(int *)&point->outLinks[0];
+            packedLinks = point->outLinks.packed[0];
             linkCount = point->outLinkCount;
             for (k = 0; k < linkCount; k++) {
                 linkForce = CLOTH_SCRATCH->linkForces[packedLinks & 0xff];
@@ -1078,12 +1078,12 @@ void StepFighterClothModel(ClothItem *item, ClothModel *model)
                 fy += linkForce[1];
                 fz += linkForce[2];
                 if (k == 3) {
-                    packedLinks = *(int *)&point->outLinks[4];
+                    packedLinks = point->outLinks.packed[1];
                 } else {
                     packedLinks >>= 8;
                 }
             }
-            packedLinks = *(int *)&point->inLinks[0];
+            packedLinks = point->inLinks.packed[0];
             linkCount = point->inLinkCount;
             for (k = 0; k < linkCount; k++) {
                 linkForce = CLOTH_SCRATCH->linkForces[packedLinks & 0xff];
@@ -1091,7 +1091,7 @@ void StepFighterClothModel(ClothItem *item, ClothModel *model)
                 fy -= linkForce[1];
                 fz -= linkForce[2];
                 if (k == 3) {
-                    packedLinks = *(int *)&point->inLinks[4];
+                    packedLinks = point->inLinks.packed[1];
                 } else {
                     packedLinks >>= 8;
                 }

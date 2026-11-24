@@ -1,14 +1,15 @@
 # Verification and progress-report workflow generated from this repository's build tables.
-# Two modes:
+# The toolchain and retail executable(s) are not in this repository; the workflow reads them
+# from a location configured for it. Two modes:
 #   1. CI-verified build: when repository secret CI_INPUTS_SSH_KEY (read-only deploy key)
-#      and repository variable CI_INPUTS_REPO (owner/private-inputs-repo) are configured,
-#      checks out the private toolchain and retail inputs outside the source checkout,
-#      runs build.sh to every executable's SHA-256, deletes the inputs, and uploads the
+#      and repository variable CI_INPUTS_REPO (owner/inputs) are configured,
+#      checks out the configured build inputs outside the source checkout,
+#      runs build.sh to every executable's SHA-256, removes the inputs, and uploads the
 #      verified objdiff report(s).
-#   2. Committed-report fallback (non-fork repository without private inputs configured):
+#   2. Committed-report fallback (non-fork repository without build inputs configured):
 #      publishes the committed objdiff report(s) exported from a verified local build.sh
 #      run and states plainly in the job summary that this run did not compile in CI.
-# On forks without secrets, the job exits cleanly with a notice and uploads nothing.
+# Where build inputs are not configured on a fork, nothing is built and nothing is uploaded.
 name: Verify Build
 
 on:
@@ -30,14 +31,14 @@ jobs:
       HAVE_INPUTS: ${{ secrets.CI_INPUTS_SSH_KEY != '' && vars.CI_INPUTS_REPO != '' }}
       IS_FORK: ${{ github.event.repository.fork }}
     steps:
-      - name: Skip on fork without private inputs
+      - name: Skip where build inputs are not configured
         if: env.HAVE_INPUTS != 'true' && env.IS_FORK == 'true'
         run: |
           echo "::notice::CI_INPUTS_REPO / CI_INPUTS_SSH_KEY are not configured on this fork; skipping verification and report upload."
           {
             echo "## Verification skipped (fork)"
             echo ""
-            echo "Private toolchain and retail executable inputs are not configured on this fork. No build ran and no report artifact was uploaded."
+            echo "The toolchain and retail executable inputs are not in this repository and are not configured on this fork. Nothing was built and no report artifact was uploaded."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout repository
@@ -47,7 +48,7 @@ jobs:
           path: repo
           persist-credentials: false
 
-      - name: Checkout private build inputs
+      - name: Check out build inputs
         if: env.HAVE_INPUTS == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -121,7 +122,7 @@ jobs:
             echo "Built from this commit with the original toolchain and verified every executable's SHA-256 via \`build.sh\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Stage committed report (private inputs not configured)
+      - name: Stage committed report (build inputs not configured)
         if: env.HAVE_INPUTS != 'true' && env.IS_FORK != 'true'
         run: |
           set -eu
@@ -133,11 +134,11 @@ jobs:
           {
             echo "## Committed report (not compiled in CI)"
             echo ""
-            echo "Private toolchain and retail executable inputs (\`CI_INPUTS_REPO\` / \`CI_INPUTS_SSH_KEY\`) are not configured on this repository."
+            echo "The toolchain and retail executable inputs are not in this repository, and \`CI_INPUTS_REPO\` / \`CI_INPUTS_SSH_KEY\` are not configured here."
             echo "This run did **not** compile the source in CI; it published the committed objdiff report(s) exported from a verified local \`build.sh\` run."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Remove private inputs and build intermediates
+      - name: Remove build inputs and intermediates
         if: always()
         run: rm -rf "${{ github.workspace }}/inputs" "${{ runner.temp }}/build"
 

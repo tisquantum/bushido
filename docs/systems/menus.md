@@ -39,7 +39,7 @@ from player one's pad, or from player two's when player one pressed neither, and
   is unplugged with the cursor on the ninth, the strip rolls back up by itself.
 - **Confirm.** A one-player entry takes confirm from player one only; Link too; the other entries from either pad,
   and outside Japan two-player VS needs both pads connected. An entry whose `alwaysUnlocked` is 0 needs
-  `gAllMenuModesEnabled` ([oddities](oddities.md)). Accepted, the entry sets the play mode, the first-person flag
+  `gAllMenuModesEnabled` ([findings](../findings.md)). Accepted, the entry sets the play mode, the first-person flag
   and the player count, clears the VS win counts for VS and Practice, and goes to its state; refused, a sound
   plays.
 - **Idle.** 900 frames (30 seconds; 36 in Europe) with no button held return to the opening.
@@ -78,7 +78,7 @@ box (`gOptionsMsgBoxSprite`); the two questions add the prompt and a highlight o
 (`gOptionsMsgCheckingCardSprites`), whose texture in `DATA3/O04.DAT` reads "Checking memory card, Just one
 moment." (in Japan メモリーカードを　調べておる　しばし　待たれよ), is mapped from no status and never shows. The
 auto-save reuses the options art to show its error (`DrawAutoSaveErrorOverlay`). In the Japanese build the
-values are dimmed through their red channel alone ([oddities](oddities.md)).
+values are dimmed through their red channel alone ([findings](../findings.md)).
 
 ## The analog controller menu (Japan)
 

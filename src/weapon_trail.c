@@ -543,7 +543,7 @@ void InitFighterWeaponTrails(int player)
         if (usePovOpponentClut) {
             trail->clut = GetClut(0x40, 0x1ff);
         } else {
-            trail->clut = GetClut(player == 0 ? 0x330 : 0x3f0, 0xc9);
+            trail->clut = GetClut(player == 0 ? 0x330 : 0x3f0, 201);
         }
         trail->packets[0] = gWeaponTrailPackets[0][player][i];
         trail->packets[1] = gWeaponTrailPackets[1][player][i];

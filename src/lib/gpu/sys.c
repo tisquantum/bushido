@@ -2,15 +2,16 @@
  * GPU control, drawing/display environments, command queue, and DMA transfer.
  */
 #include <sys/types.h>
-#include <stdio.h>
 #include <libetc.h>
 #include <libgte.h>
 #include <libgpu.h>
 #include "etc_int.h"
 #include "gpu_int.h"
 
-/* memory.h would also declare memset, which this module defines static */
+/* memory.h would also declare memset (defined static here), and stdio.h's variadic
+ * printf clashes with libgpu.h's unprototyped int (*GPU_printf)() */
 extern void *memcpy();
+extern int printf();
 
 static void memset(char *p, int c, int n);
 
@@ -34,7 +35,7 @@ static int _version(int mode);
 /* a queued call: the routine, its parameter or a copy of it in buf, and a value */
 typedef struct {
 	void	(*func)();
-	u_long	*param;
+	volatile u_long	*param;
 	u_long	value;
 	u_long	buf[21];
 } GpuQueueEntry;

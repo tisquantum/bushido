@@ -73,8 +73,6 @@
 #define REPLAY_CAMERA_DISTANCE       10000
 #define REPLAY_FALLBACK_FLOOR_OFFSET 900
 
-#define FIGHTER_CLIMB_ENTER          1
-
 /* 32-byte per-fighter snapshot in the 256 x 2 ring held in gSharedWorkBuffer. */
 typedef struct ReplayFrame {
     int x;
@@ -181,8 +179,8 @@ void ResetReplayBuffer(void)
     gCombatFrameCounter = 0;
     pairs = (ReplayFrame (*)[2])gSharedWorkBuffer;
     for (frameIndex = 0; frameIndex < REPLAY_RING_FRAMES; ++frameIndex) {
-        pairs[frameIndex][0].combatEvent = 0;
-        pairs[frameIndex][1].combatEvent = 0;
+        pairs[frameIndex][0].combatEvent = COMBAT_EVENT_NONE;
+        pairs[frameIndex][1].combatEvent = COMBAT_EVENT_NONE;
     }
 
     gReplayMarkCursor = 0;
@@ -209,7 +207,7 @@ void RecordFighterReplayFrame(int side, int blendTargetFrame)
     if (fighter->poseBlendWeight > 0) {
         frame->blendTargetFrame = fighter->lastSampledFrame;
         frame->blendAndFlipFlags = fighter->poseBlendWeight + REPLAY_BLEND_ACTIVE_BIT;
-        if (fighter->climbState == FIGHTER_CLIMB_ENTER) {
+        if (fighter->climbState == FIGHTER_CLIMB_START) {
             frame->blendAndFlipFlags |= REPLAY_FLIP_CLIMB_BIT;
         }
         if (fighter->prevFacingState == MOTION_FACING_SUPINE_FLIP) {
@@ -223,9 +221,9 @@ void RecordFighterReplayFrame(int side, int blendTargetFrame)
         frame->blendAndFlipFlags = fighter->animFrac;
     }
     frame->shadowGroundY = fighter->shadowGroundY;
-    if (frame->combatEvent != 0) {
+    if (frame->combatEvent != COMBAT_EVENT_NONE) {
         gReplayEffectMarks[frame->markIndex].inUse = 0;
-        frame->combatEvent = 0;
+        frame->combatEvent = COMBAT_EVENT_NONE;
     }
     frame->lookAnglesAndFace[0] = (fighter->lookRoll & REPLAY_LOOK_ROLL_MASK) |
         (fighter->faceExpression << REPLAY_FACE_SHIFT);
@@ -239,7 +237,7 @@ void RecordReplayCombatEvent(int side, int event, VECTOR *position)
     ReplayEffectMark *mark;
 
     frame = &((ReplayFrame *)gSharedWorkBuffer)[((unsigned char)gCombatFrameCounter << 1) + side];
-    if (frame->combatEvent == 0) {
+    if (frame->combatEvent == COMBAT_EVENT_NONE) {
         mark = &gReplayEffectMarks[gReplayMarkCursor & REPLAY_MARK_MASK];
         if (mark->inUse == 0) {
             mark->inUse = 1;
@@ -380,7 +378,7 @@ void UpdateBattleReplay(void)
                                     (PoseAngles *)&gReplayFighterAngles[side], 0, frame->shadowGroundY);
         UpdateFighterHitGeometry(&gFighters[side], COLLISION_SCRATCH->bodyPartPos[side],
                                  COLLISION_SCRATCH->weaponPoints[side]);
-        if (frame->combatEvent != 0) {
+        if (frame->combatEvent != COMBAT_EVENT_NONE) {
             mark = &gReplayEffectMarks[frame->markIndex];
             effectPos.vx = frame->x + mark->x;
             effectPos.vy = frame->y + mark->y;

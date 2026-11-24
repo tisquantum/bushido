@@ -20,7 +20,7 @@ extern long _SendPAD(char *buf1, long len1, char *buf2, long len2);
 extern void _patch_pad(void);
 extern long EnablePAD(void);
 extern void DesablePAD(void);
-extern long PAD_init2(long mode, long *tbl, long arg3, long arg4);
+extern long PAD_init2(long mode, long *tbl, long ignoredA, long ignoredB);
 extern long InitPAD2(char *bufA, long lenA, char *bufB, long lenB);
 extern long StartPAD2(void);
 extern void StopPAD2(void);

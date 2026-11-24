@@ -114,7 +114,7 @@ int CheckWeaponStagePropHit(int side)
                 if (weaponId == WEAPON_ID_NAGINATA) {
                     work->primaryMin = COLLISION_SCRATCH->weaponPoints[side][0];
                     work->primaryMax = gFighters[side].prevWeaponPoints[0];
-                    for (k = 0; k < 2; k++) {
+                    for (k = 0; ; ) {
                         if (k == 0) {
                             a = &work->workPoints[side][3];
                             b = &work->workPoints[side][1];
@@ -125,13 +125,14 @@ int CheckWeaponStagePropHit(int side)
                             c = &work->primaryMin;
                         }
                         if (IsPointInTriangleXZ(a, b, c, (WorldVector *)&work->localPoint) != 0) {
-                            goto cutProp;
+                            break;
+                        }
+                        if (++k >= 2) {
+                            blocked = 1;
+                            goto done;
                         }
                     }
-                    blocked = 1;
-                    goto done;
                 }
-cutProp:
                 marker->cut = 1;
                 TriggerCuttablePropFall(j, GetTriangleNormalHeading((VECTOR *)a, (VECTOR *)b, (VECTOR *)c));
                 DispatchCombatEventEffect(side, COMBAT_EVENT_PROP_CUT, (VECTOR *)a);

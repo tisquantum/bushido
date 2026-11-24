@@ -99,14 +99,14 @@ static inline int get_alarm(void)
 	return 0;
 }
 
-static inline void cpy(u_char *dst, u_char *src, int n)
+static inline void cpy(u_char *dst, volatile u_char *src, int n)
 {
 	if (dst)
 		while (n--)
 			*dst++ = *src++;
 }
 
-/* kept: written in place, both stores reach Intr through a register; that the authors wrote it is not established */
+/* kept: the plain form compiles differently; cause not established */
 static inline void set_intr(int i, u_char intr)
 {
 	Intr[i] = intr;

@@ -247,28 +247,25 @@ static void ReadTimTextureInfo(unsigned long *tim, TextureInfo *out,
                                short x, short y, short clutX, short clutY);
 
 /* Nothing calls it. */
-static int GetTimGroupEntryInfo(void *cursor, int groupIndex, unsigned int entryIndex, TextureInfo *out)
+static int GetTimGroupEntryInfo(unsigned short *cursor, int groupIndex, unsigned int entryIndex, TextureInfo *out)
 {
     unsigned int base = (unsigned int)cursor;
     unsigned int count, timOffset;
     unsigned short x, y, clutX, clutY;
     int result;
 
-    cursor = (void *)(((unsigned int *)cursor)[groupIndex] + base);
+    cursor = (unsigned short *)(((unsigned int *)cursor)[groupIndex] + base);
     count = *(unsigned int *)cursor;
-    cursor = (unsigned char *)cursor + 4;
+    cursor += 2;
 
     if (entryIndex < count) {
-        cursor = (unsigned char *)cursor + entryIndex * 12;
+        cursor += entryIndex * 6;
         timOffset = *(unsigned int *)cursor;
-        cursor = (unsigned char *)cursor + 4;
-        x = *(unsigned short *)cursor;
-        cursor = (unsigned char *)cursor + 2;
-        y = *(unsigned short *)cursor;
-        cursor = (unsigned char *)cursor + 2;
-        clutX = *(unsigned short *)cursor;
-        cursor = (unsigned char *)cursor + 2;
-        clutY = *(unsigned short *)cursor;
+        cursor += 2;
+        x = *cursor++;
+        y = *cursor++;
+        clutX = *cursor++;
+        clutY = *cursor;
 
         ReadTimTextureInfo((unsigned long *)(timOffset + base), out, (short)x, (short)y, clutX, clutY);
         result = count;

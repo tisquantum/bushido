@@ -6,6 +6,7 @@
 #include <libgte.h>
 #include "model_arena.h"
 #include "scene_node.h"
+#include "light.h"
 #include "fighter_skeleton.h"
 
 #define SKELETON_PART_SLOT_COUNT 20
@@ -149,7 +150,7 @@ void InitFighterShadowParts(struct SceneNode *joints, struct SceneNode *shadows,
             shadows->rotOrder = SCENE_ROT_ORDER_FAST;
             shadows->parent = &joints[i];
             shadows->matrixState = SCENE_MATRIX_WORLD_VALID;
-            shadows->lightSlot = 0;
+            shadows->lightSlot = LIGHT_SLOT_P1;
             shadows->modelSlot = modelSlot;
             shadows->param.shadowFloorY = 0;
             ++shadows;
@@ -168,7 +169,7 @@ void AppendWeaponShadowPart(struct SceneNode *joints, struct SceneNode *shadows,
     shadows->parent = &joints[FIGHTER_JOINT_RIGHT_HAND];
     shadows->matrixState = SCENE_MATRIX_WORLD_VALID;
     shadows->rotOrder = SCENE_ROT_ORDER_FAST;
-    shadows->lightSlot = 0;
+    shadows->lightSlot = LIGHT_SLOT_P1;
     shadows->modelSlot = modelSlot;
     shadows->param.shadowFloorY = 0;
     shadows[1].meshIndex = SCENE_MESH_NONE;

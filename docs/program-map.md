@@ -68,8 +68,8 @@ The game:
 
 Both:
 
-- [Oddities of the original program](systems/oddities.md): what the 1997 code does other than its shape or data
-  suggests, faithfully reproduced: checks that never pass, values that never last, states nothing enters.
+- [What the program holds that play does not reach](findings.md): code nothing reaches, unreferenced disc files and
+  tables, rare and conditional behaviour, build differences across the three releases, and how the game was built.
 
 ## Where to find things
 
@@ -295,7 +295,7 @@ the handler that runs each frame. The indices are named in `include/game_state.h
 | 37, 38 | `InitStoryPrologueState`, `UpdateStoryPrologueState` | A character's prologue |
 | 39, 40 | `InitCreditsState`, `UpdateCreditsState` | The staff credits |
 | 41 | `HandleLinkAbortState` | Leaving after a link cable failure |
-| 42 to 44 | `WaitCrossToMenuState`, `InitWaitCancelToMenuState`, `UpdateWaitCancelToMenuState` | Never entered: 42 and 44 wait for a button, then the main menu ([oddities](systems/oddities.md)) |
+| 42 to 44 | `WaitCrossToMenuState`, `InitWaitCancelToMenuState`, `UpdateWaitCancelToMenuState` | Never entered: 42 and 44 wait for a button, then the main menu ([findings](findings.md)) |
 | 45, 46 | `InitAnalogControllerMenuState`, `UpdateAnalogControllerMenuState` | Japan's analog controller menu (empty elsewhere) |
 | 47, 48 | `InitApproachCutsceneState`, `UpdateApproachCutsceneState` | Story mode's approach cutscene |
 | 49, 50 | `InitMovieTheaterState`, `UpdateMovieTheaterState` | The movie theatre |
@@ -370,8 +370,8 @@ which an attack can hit, and the flags that hold the stance.
 
 ## Open questions
 
-- **Empty and unreferenced routines.** States 11, 12, 15 and 16 do nothing. A few routines are never called
-  ([oddities](systems/oddities.md)), and the empty routine called first by `EndSceneFrame`
-  (`EndSceneFrameNoOp`) compiles to an immediate return.
+- **Empty and unreferenced routines.** States 11, 12, 15 and 16 do nothing. Seventy-one own routines in North
+  America and Europe (ninety-six in Japan) have no caller ([findings](findings.md)), and the empty routine called
+  first by `EndSceneFrame` (`EndSceneFrameNoOp`) compiles to an immediate return.
 - **Unread fields.** Some record fields are written and never read, or read only by the hand-written renderer;
   their meaning is stated where the source knows it.

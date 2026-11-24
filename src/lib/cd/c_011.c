@@ -240,9 +240,9 @@ static void dma_execute(int ch, u_long addr, u_long bcount, u_long bsize, u_long
 	u_char irq_mask;
 
 	wait_count = 0;
-	while (*(volatile u_long *)(DMA0_CHCR_ADDR + (ch << 4)) & DMA_CHCR_BUSY) {
+	while (((volatile struct DmaChReg *)DMA0_MADR_ADDR)[ch].chcr & DMA_CHCR_BUSY) {
 		if (wait_count == DMA_WAIT_TIMEOUT) {
-			printf("DMA STATUS ERROR %x\n", *(volatile u_long *)(DMA0_CHCR_ADDR + (ch << 4)));
+			printf("DMA STATUS ERROR %x\n", ((volatile struct DmaChReg *)DMA0_MADR_ADDR)[ch].chcr);
 			break;
 		}
 		wait_count++;
@@ -265,7 +265,7 @@ static void dma_execute(int ch, u_long addr, u_long bcount, u_long bsize, u_long
 	dpcr_val += 3;
 	dpcr_mask = 1;
 	dpcr_mask <<= dpcr_val;
-	dma_reg = (volatile u_long *)(DMA0_MADR_ADDR + (ch << 4));
+	dma_reg = &((volatile struct DmaChReg *)DMA0_MADR_ADDR)[ch].madr;
 	dpcr_val = *DMA_DPCR;
 	dpcr_val |= dpcr_mask;
 	*DMA_DPCR = dpcr_val;

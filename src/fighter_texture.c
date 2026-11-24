@@ -5,6 +5,7 @@
 #include <libgte.h>
 #include <libgpu.h>
 #include "fighter.h"
+#include "fighter_skeleton.h"
 #include "model_arena.h"
 #include "packet_build.h"
 #include "asset_load.h"
@@ -31,8 +32,8 @@ enum FighterTextureMode {
 
 enum {
     FIGHTER_ALT_TEXTURE_MIN_BUFFER = 0xaf08, /* minimum free bytes in GPU packet buffer for D00..D05 */
-    FIGHTER_BASE_TEXTURE_COUNT = 18,         /* character IDs 0..17 map to DATA4\D06..D23 (case 12 skipped) */
-    FIGHTER_OVERLAY_CHAR_COUNT = 12          /* character IDs 0..5 playable + 6..11 story alternates */
+    FIGHTER_BASE_TEXTURE_COUNT = 18,         /* archive IDs 0..17 map to DATA4\D06..D23 (CHAR_ARCHIVE_FINAL_BOSS skipped) */
+    FIGHTER_OVERLAY_CHAR_COUNT = 12          /* archive IDs 0..5 playable + 6..11 story alternates */
 };
 
 /* Whether each story alternate (characters 6..11) has an alternate texture file (DATA4\D00..D05). */
@@ -69,41 +70,41 @@ void LoadFighterAltTextures(int player)
 
 void LoadFighterBaseTextures(int player, int injuryMask)
 {
-    int character = GetFighterCharacterId(player);
+    int characterId = GetFighterCharacterId(player);
     void *buffer;
 
-    if (character < 0 || character >= FIGHTER_BASE_TEXTURE_COUNT) {
+    if (characterId < 0 || characterId >= FIGHTER_BASE_TEXTURE_COUNT) {
         return;
     }
 
-    switch (character) {
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-    case 9:
-    case 10:
-    case 11:
-    case 13:
-    case 14:
-    case 15:
-    case 16:
-    case 17:
+    switch (characterId) {
+    case CHAR_ARCHIVE_KANNUKI:
+    case CHAR_ARCHIVE_MIKADO:
+    case CHAR_ARCHIVE_BLACK_LOTUS:
+    case CHAR_ARCHIVE_TATSUMI:
+    case CHAR_ARCHIVE_RED_SHADOW:
+    case CHAR_ARCHIVE_UTSUSEMI:
+    case CHAR_ARCHIVE_KANNUKI_ALT:
+    case CHAR_ARCHIVE_MIKADO_ALT:
+    case CHAR_ARCHIVE_BLACK_LOTUS_ALT:
+    case CHAR_ARCHIVE_TATSUMI_ALT:
+    case CHAR_ARCHIVE_RED_SHADOW_ALT:
+    case CHAR_ARCHIVE_UTSUSEMI_ALT:
+    case CHAR_ARCHIVE_FINAL_BOSS_ALT:
+    case CHAR_ARCHIVE_KATZE:
+    case CHAR_ARCHIVE_BOUT8_BOSS:
+    case CHAR_ARCHIVE_BOUT6_BOSS:
+    case CHAR_ARCHIVE_BOUT7_BOSS:
         buffer = GetGpuPacketBuffer(0);
-        ReadCdFileSync(CD_FILE_FIGHTER_TEXTURES + character, buffer);
+        ReadCdFileSync(CD_FILE_FIGHTER_TEXTURES + characterId, buffer);
         if (player == 0) {
             LoadTimGroup(buffer, 0);
         } else {
             LoadTimGroupWithOffset(buffer, 0, TPAGE_P2_X_OFFSET, 0);
         }
-        if ((character >= PLAYABLE_CHARACTER_COUNT && character < FIGHTER_OVERLAY_CHAR_COUNT) ||
-            character == 2) {
-            ApplyFighterTextureOverlays(player, character, FIGHTER_TEXTURE_BASE, injuryMask, buffer);
+        if ((characterId >= PLAYABLE_CHARACTER_COUNT && characterId < FIGHTER_OVERLAY_CHAR_COUNT) ||
+            characterId == CHAR_ARCHIVE_BLACK_LOTUS) {
+            ApplyFighterTextureOverlays(player, characterId, FIGHTER_TEXTURE_BASE, injuryMask, buffer);
         }
         break;
     }

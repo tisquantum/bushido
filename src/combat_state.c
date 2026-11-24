@@ -326,7 +326,7 @@ void LoadMenuSoundBanks(void)
 
 /* By fighter id - 12: the six boss classes (12 to 17), then ids 18 to 23, of which the Slash enemies are 19 to 22. */
 unsigned char gBossDefaultWeapons[12] = {
-    WEAPON_ID_NODACHI, WEAPON_ID_LONG_SWORD, WEAPON_ID_GUN, WEAPON_ID_KATANA, 9, WEAPON_ID_RAPIER,
+    WEAPON_ID_NODACHI, WEAPON_ID_LONG_SWORD, WEAPON_ID_GUN, WEAPON_ID_KATANA, WEAPON_ID_BOUT6_BOSS, WEAPON_ID_RAPIER,
     0, WEAPON_ID_KATANA, WEAPON_ID_KATANA, WEAPON_ID_KATANA, WEAPON_ID_KATANA, 0,
 };
 
@@ -1148,9 +1148,8 @@ void InitCombatState(void)
         TintSlashEnemyCluts(gSlashEnemyTintColor.r, gSlashEnemyTintColor.g, gSlashEnemyTintColor.b);
     }
     if (!stageChanged) {
-        Fighter *fighters = gFighters;
         motionFile = MOTION_FILE;
-        SetFighterMotionPlacement(&fighters[0], MOTION_FILE->startPlacements[gFighters[0].weaponPairSlot]);
+        SetFighterMotionPlacement(&gFighters[0], MOTION_FILE->startPlacements[gFighters[0].weaponPairSlot]);
         if (gPlayMode == PLAY_MODE_STORY &&
             gStoryChallengerActive == 0 &&
             gStoryEventResult != STORY_EVENT_STAGE9_BOTH_FALL) {
@@ -1165,7 +1164,7 @@ void InitCombatState(void)
     if (gIsContinueRestart == 0)
         gCombatRoundCounter++;
     exitPlayMode = gPlayMode;
-    gStoryEventResult = 0;
+    gStoryEventResult = STORY_EVENT_NONE;
     gIsContinueRestart = 0;
     gPracticeFirstBoutFlag = 0;
     if (exitPlayMode == PLAY_MODE_SLASH)

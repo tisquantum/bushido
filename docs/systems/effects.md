@@ -46,9 +46,9 @@ a sheet once and free the slot (`UpdateSpriteEffect`):
 | 1 | `gWallHitSparkMesh` | 5 x 1 | 900 square | a weapon or thrown item striking scenery |
 | 2 | `gDustPuffMesh` | 10 x 1 | 300 square | foot dust events, a bullet striking scenery |
 | 3 | `gBladeLockFlashMesh` | own update | 600 square | the blade lock |
-| 4 | `gUnusedEffect4Mesh` | 8 x 1 | 400 square | nothing |
+| 4 | `gEffect4Mesh` | 8 x 1 | 400 square | nothing |
 | 5, 6 | `gGunMuzzleFlashP1Mesh`, `gGunMuzzleFlashP2Mesh` | 6 x 1 | 200 by 300 | Katze's shot, by side |
-| 7 | `gUnusedEffect7Mesh` | 6 x 1 | 400 by 400 | nothing |
+| 7 | `gEffect7Mesh` | 6 x 1 | 400 by 400 | nothing |
 | 8 | ring and splash | own update | | a fighter entering Dozaemon Moat's water |
 | 9 | `gWaterSurfaceSplashMesh` | 5 x 3 | 600 by 600 | a blade or item breaking that water |
 | 10 | `gWaterRippleEffectMesh` | own update | 800 square | a fighter wading in the moat, every eighth frame (`src/stage_moat.c`) |
@@ -129,7 +129,7 @@ spawned; kind 15 is spawned too but draws nothing:
 | 1, 8 to 14 | nothing (no texture) | | |
 
 Kind 15 draws nothing: two frames after it starts, `UpdateDelayedAmbientTrigger` plays the stage's first ambient
-sound from its position and frees the slot ([oddities](oddities.md)).
+sound from its position and frees the slot ([findings](../findings.md)).
 
 ## Footprints
 

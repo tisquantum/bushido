@@ -26,14 +26,14 @@ long ReadInitPadFlag(void)
     return InitPadFlag;
 }
 
-long PAD_init(long mode, long *tbl, long arg3, long arg4)
+long PAD_init(long mode, long *tbl, long ignoredA, long ignoredB)
 {
     EnterCriticalSection();
     _patch_pad();
     ExitCriticalSection();
     ChangeClearPAD(0);
     SetPatchPad();
-    PAD_init2(mode, tbl, arg3, arg4);
+    PAD_init2(mode, tbl, ignoredA, ignoredB);
     InitPadFlag = 1;
     return 1;
 }
