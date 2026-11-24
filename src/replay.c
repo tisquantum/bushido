@@ -6,6 +6,7 @@
 #include <libgte.h>
 #include <libgpu.h>
 
+#include "substep.h"
 #include "pad.h"
 #include "billboard.h"
 #include "camera.h"
@@ -221,7 +222,8 @@ void RecordFighterReplayFrame(int side, int blendTargetFrame)
         frame->blendAndFlipFlags = fighter->animFrac;
     }
     frame->shadowGroundY = fighter->shadowGroundY;
-    if (frame->combatEvent != COMBAT_EVENT_NONE) {
+    /* A frame's ticks record it over and over; only the first clears what the slot held. */
+    if (PC_FIRST_SUBTICK && frame->combatEvent != COMBAT_EVENT_NONE) {
         gReplayEffectMarks[frame->markIndex].inUse = 0;
         frame->combatEvent = COMBAT_EVENT_NONE;
     }

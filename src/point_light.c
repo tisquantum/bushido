@@ -4,6 +4,7 @@
  */
 #include <sys/types.h>
 #include <libgte.h>
+#include "substep.h"
 #include "light.h"
 #include "light_init.h"
 #include "point_light.h"
@@ -128,7 +129,7 @@ static void UpdatePointLight(WorldVector *firstTarget, WorldVector *secondTarget
         LoadAverageShort12(&gPointLightStartColor, &gPointLightEndColor,
                            POINT_LIGHT_FADE_MAX - gPointLightFadeProgress,
                            gPointLightFadeProgress, &color);
-        gPointLightFadeProgress += gPointLightFadeRate;
+        gPointLightFadeProgress += PC_SHARE(gPointLightFadeRate);
         for (i = 0; i < POINT_LIGHT_TARGET_COUNT; i++) {
             if (i == 0) {
                 position = firstTarget;

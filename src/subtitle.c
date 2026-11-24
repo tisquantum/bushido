@@ -1,5 +1,6 @@
 /* Subtitles: caption scripts for Story cutscenes, prologues, FMV endings and combat taunts, each a
  * list of "TTTTN" headed lines timed in frames, and the routines that start, advance and draw them. */
+#include "substep.h"
 #include "font_hud.h"
 #include "subtitle.h"
 
@@ -170,7 +171,7 @@ void UpdateAndDrawSubtitle(int useLowResWidth)
 
     src = (unsigned char *)gSubtitleCursor[1];
     timestamp = (src[0] - '0') * 1000 + (src[1] - '0') * 100 + (src[2] - '0') * 10 + (src[3] - '0');
-    if (++gSubtitleFrame == timestamp) {
+    if (PC_LAST_SUBTICK && ++gSubtitleFrame == timestamp) {
         gSubtitleCursor++;
     }
 }

@@ -26,6 +26,16 @@ static POLY_F4 gScreenFadeQuads[SCREEN_FADE_BANK_COUNT];
 static DR_MODE gScreenFadeModes[SCREEN_FADE_BANK_COUNT];
 
 static ScreenFadePreset *gActiveScreenFade;
+
+#ifdef TARGET_PC
+/* A fade drawn before any has started reads its preset through a null pointer: RAM at address 0 on the
+ * console, which the PC cannot map. The port reads a preset of zeros instead. */
+static ScreenFadePreset sUnstartedScreenFade;
+#define ACTIVE_SCREEN_FADE (gActiveScreenFade != NULL ? gActiveScreenFade : &sUnstartedScreenFade)
+#else
+#define ACTIVE_SCREEN_FADE gActiveScreenFade
+#endif
+
 static int gScreenFadeInitFrames;           /* counts down from SCREEN_FADE_BANK_COUNT so both banks initialize */
 static int gScreenFadePresetId;             /* written, never read */
 
@@ -46,11 +56,11 @@ void BuildScreenFadePrim(void)
     bank = gFrameCounter & 1;
     poly = &gScreenFadeQuads[bank];
     SetPolyF4(poly);
-    setRGB0(poly, gActiveScreenFade->startR, gActiveScreenFade->startG, gActiveScreenFade->startB);
+    setRGB0(poly, ACTIVE_SCREEN_FADE->startR, ACTIVE_SCREEN_FADE->startG, ACTIVE_SCREEN_FADE->startB);
     SetSemiTrans(poly, 1);
     setXYWH(poly, 0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
     drawMode = &gScreenFadeModes[bank];
-    SetDrawMode(drawMode, 1, 1, GetTPage(0, gActiveScreenFade->abr, 0, 0), 0);
+    SetDrawMode(drawMode, 1, 1, GetTPage(0, ACTIVE_SCREEN_FADE->abr, 0, 0), 0);
 }
 
 int UpdateAndDrawScreenFade(void)
@@ -64,17 +74,17 @@ int UpdateAndDrawScreenFade(void)
         gScreenFadeInitFrames--;
     }
     poly = &gScreenFadeQuads[gFrameCounter & 1];
-    poly->r0 = ((gActiveScreenFade->endR - gActiveScreenFade->startR) * gActiveScreenFade->progress) / ONE +
-        gActiveScreenFade->startR;
-    poly->g0 = ((gActiveScreenFade->endG - gActiveScreenFade->startG) * gActiveScreenFade->progress) / ONE +
-        gActiveScreenFade->startG;
-    poly->b0 = ((gActiveScreenFade->endB - gActiveScreenFade->startB) * gActiveScreenFade->progress) / ONE +
-        gActiveScreenFade->startB;
+    poly->r0 = ((ACTIVE_SCREEN_FADE->endR - ACTIVE_SCREEN_FADE->startR) * ACTIVE_SCREEN_FADE->progress) / ONE +
+        ACTIVE_SCREEN_FADE->startR;
+    poly->g0 = ((ACTIVE_SCREEN_FADE->endG - ACTIVE_SCREEN_FADE->startG) * ACTIVE_SCREEN_FADE->progress) / ONE +
+        ACTIVE_SCREEN_FADE->startG;
+    poly->b0 = ((ACTIVE_SCREEN_FADE->endB - ACTIVE_SCREEN_FADE->startB) * ACTIVE_SCREEN_FADE->progress) / ONE +
+        ACTIVE_SCREEN_FADE->startB;
     AddPrim(gCurrentOt, &gScreenFadeQuads[gFrameCounter & 1]);
     AddPrim(gCurrentOt, &gScreenFadeModes[gFrameCounter & 1]);
-    gActiveScreenFade->progress += gActiveScreenFade->step;
-    if (gActiveScreenFade->progress > ONE) {
-        gActiveScreenFade->progress = ONE;
+    ACTIVE_SCREEN_FADE->progress += ACTIVE_SCREEN_FADE->step;
+    if (ACTIVE_SCREEN_FADE->progress > ONE) {
+        ACTIVE_SCREEN_FADE->progress = ONE;
         done = 1;
     }
     return done;

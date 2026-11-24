@@ -5,6 +5,7 @@
 #include <libgpu.h>
 #include <rand.h>
 
+#include "substep.h"
 #include "effect_slot.h"
 #include "packet_build.h"
 #include "scene_node.h"
@@ -544,7 +545,7 @@ void UpdateSpriteEffect(EffectSlot *effect)
     mesh->pos[1] = effect->pos.vy;
     mesh->pos[2] = effect->pos.vz;
     mesh->quadStart = effect->frameOrTick;
-    if (++effect->subTick >= effect->params.sprite.ticksPerFrame) {
+    if (PC_LAST_SUBTICK && ++effect->subTick >= effect->params.sprite.ticksPerFrame) {
         if (++effect->frameOrTick >= effect->params.sprite.frameCount) {
             effect->active = EFFECT_SLOT_FREE;
         }
@@ -621,7 +622,7 @@ void UpdateStage4LightGlow(EffectSlot *effect)
     } else {
         effect->active = EFFECT_SLOT_ACTIVE;
         distance = (distance >> 1) > ONE ? ONE : (distance >> 1);
-        distance = (((rand() & 15) + 64) * distance) >> 12;
+        distance = (((PC_LAST_SUBTICK ? rand() & 15 : 8) + 64) * distance) >> 12;
         mesh->quads[0].tint.color.r = distance;
         mesh->quads[0].tint.color.g = distance;
         mesh->quads[0].tint.color.b = distance;
@@ -743,8 +744,8 @@ void UpdateWaterRingEffect(EffectSlot *effect)
     mesh->vertices[7].vx = 0;
     mesh->vertices[7].vz = negativeRadius;
     mesh->vertices[8].vz = negativeRadius;
-    effect->frameOrTick = radius + ((3000 - radius) >> 3);
-    shade = 0x8000 - ++effect->subTick * 1092;
+    effect->frameOrTick = radius + PC_APPROACH_EX((3000 - radius) >> 3, 3000 - radius, PC_KEEP(8));
+    shade = 0x8000 - PC_FRAME_INC(effect->subTick) * 1092;
     if (shade < 0) {
         shade = 0;
     }
@@ -778,7 +779,7 @@ void UpdateWaterSplashBillboard(EffectSlot *effect)
     if (effect->frameOrTick >= 8) {
         effect->active = EFFECT_SLOT_FREE;
     }
-    if ((gSceneFrameCounter & 1) == 0) {
+    if (PC_LAST_SUBTICK && (gSceneFrameCounter & 1) == 0) {
         effect->frameOrTick += 1;
     }
 }
@@ -859,7 +860,7 @@ void UpdateWaterRippleEffect(EffectSlot *effect)
     mesh->pos[0] = effect->pos.vx;
     mesh->pos[1] = effect->pos.vy;
     mesh->pos[2] = effect->pos.vz;
-    quadStart = (++effect->subTick >> 1) << 2;
+    quadStart = (PC_FRAME_INC(effect->subTick) >> 1) << 2;
     mesh->quadStart = quadStart;
     if (quadStart >= 16) {
         effect->active = EFFECT_SLOT_FREE;
@@ -1151,7 +1152,7 @@ void UpdateBladeLockFlashEffect(EffectSlot *effect)
         meshes[0].quadCount = 1;
         meshes[1].quadStart = meshes[0].quadStart = effect->frameOrTick;
     }
-    effect->frameOrTick = ++effect->subTick >> 1;
+    effect->frameOrTick = PC_FRAME_INC(effect->subTick) >> 1;
     if (effect->frameOrTick >= 3) {
         effect->active = EFFECT_SLOT_FREE;
     }
@@ -1217,15 +1218,15 @@ void UpdateBallisticParticle(EffectSlot *effect)
     mesh->pos[0] = effect->pos.vx;
     mesh->pos[1] = effect->pos.vy;
     mesh->pos[2] = effect->pos.vz;
-    effect->pos.vx += effect->params.vel.x >> 4;
-    effect->pos.vy += effect->params.vel.y >> 4;
-    effect->pos.vz += effect->params.vel.z >> 4;
-    effect->params.vel.y += 180;
+    effect->pos.vx += PC_SHARE(effect->params.vel.x >> 4);
+    effect->pos.vy += PC_SHARE(effect->params.vel.y >> 4);
+    effect->pos.vz += PC_SHARE(effect->params.vel.z >> 4);
+    effect->params.vel.y += PC_ON_LAST(180);
     if (effect->floorY < mesh->pos[1]) {
         effect->active = EFFECT_SLOT_FREE;
     } else {
         mesh->quadStart = effect->frameOrTick;
-        frame = ++effect->subTick >> 2;
+        frame = PC_FRAME_INC(effect->subTick) >> 2;
         effect->frameOrTick = frame;
         if (frame >= 5) {
             effect->frameOrTick = 4;
@@ -1292,12 +1293,12 @@ void UpdateBloodDropParticle(EffectSlot *effect)
     mesh->pos[0] = effect->pos.vx;
     mesh->pos[1] = effect->pos.vy;
     mesh->pos[2] = effect->pos.vz;
-    effect->pos.vx += effect->params.vel.x >> 4;
-    effect->pos.vy += effect->params.vel.y >> 4;
-    effect->pos.vz += effect->params.vel.z >> 4;
-    effect->params.vel.y += 140;
+    effect->pos.vx += PC_SHARE(effect->params.vel.x >> 4);
+    effect->pos.vy += PC_SHARE(effect->params.vel.y >> 4);
+    effect->pos.vz += PC_SHARE(effect->params.vel.z >> 4);
+    effect->params.vel.y += PC_ON_LAST(140);
     mesh->quadStart = effect->frameOrTick;
-    frame = ++effect->subTick >> 2;
+    frame = PC_FRAME_INC(effect->subTick) >> 2;
     effect->frameOrTick = frame;
     if (frame >= 5) {
         effect->active = EFFECT_SLOT_FREE;
@@ -1338,7 +1339,7 @@ static void UpdateBloodSprayEmitter(EffectSlot *effect)
     short *localVel;
     int index;
 
-    if (++effect->subTick >= 3) {
+    if (PC_LAST_SUBTICK && ++effect->subTick >= 3) {
         rotation.vx = effect->params.emitter.pitch;
         rotation.vy = effect->params.emitter.yaw;
         rotation.vz = 0;
@@ -1421,9 +1422,9 @@ void UpdateSprayParticle(EffectSlot *effect)
     mesh->pos[1] = effect->pos.vy;
     mesh->pos[2] = effect->pos.vz;
 
-    effect->pos.vx += effect->params.vel.x >> 4;
-    effect->pos.vy += effect->params.vel.y >> 4;
-    effect->pos.vz += effect->params.vel.z >> 4;
+    effect->pos.vx += PC_SHARE(effect->params.vel.x >> 4);
+    effect->pos.vy += PC_SHARE(effect->params.vel.y >> 4);
+    effect->pos.vz += PC_SHARE(effect->params.vel.z >> 4);
 
     switch ((unsigned int)effect->variant) {
     case SPRAY_KIND_NONE:
@@ -1431,7 +1432,7 @@ void UpdateSprayParticle(EffectSlot *effect)
 
     case SPRAY_KIND_STREAM:
         frame = effect->frameOrTick >> 1;
-        effect->params.vel.y += 200;
+        effect->params.vel.y += PC_ON_LAST(200);
         if (frame >= 6) {
             effect->active = EFFECT_SLOT_FREE;
         } else {
@@ -1441,7 +1442,7 @@ void UpdateSprayParticle(EffectSlot *effect)
 
     case SPRAY_KIND_WATERFALL:
         frame = effect->frameOrTick >> 1;
-        effect->params.vel.y += 140;
+        effect->params.vel.y += PC_ON_LAST(140);
         if (frame >= 7) {
             effect->active = EFFECT_SLOT_FREE;
         } else {
@@ -1451,7 +1452,7 @@ void UpdateSprayParticle(EffectSlot *effect)
 
     case SPRAY_KIND_WATER_SURFACE:
         frame = effect->frameOrTick >> 2;
-        effect->params.vel.y += 200;
+        effect->params.vel.y += PC_ON_LAST(200);
         if (frame >= 7)
             frame = 6;
         if (effect->pos.vy > MOAT_WATER_SURFACE_Y) {
@@ -1463,7 +1464,7 @@ void UpdateSprayParticle(EffectSlot *effect)
 
     case SPRAY_KIND_SHORELINE:
         frame = effect->frameOrTick >> 1;
-        effect->params.vel.y += 200;
+        effect->params.vel.y += PC_ON_LAST(200);
         if (frame >= 7)
             frame = 6;
         if (effect->pos.vy > 400) {
@@ -1474,7 +1475,8 @@ void UpdateSprayParticle(EffectSlot *effect)
         break;
     }
 
-    ++effect->frameOrTick;
+    if (PC_LAST_SUBTICK)
+        ++effect->frameOrTick;
     mesh->quadStart = frame;
 }
 

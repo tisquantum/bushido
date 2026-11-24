@@ -6,6 +6,7 @@
 #include <rand.h>
 #include <inline_o.h>
 
+#include "substep.h"
 #include "cloth.h"
 #include "foliage.h"
 #include "gpu_code.h"
@@ -175,6 +176,9 @@ int UpdateAndDrawSwayingFoliage(SwayingFoliageScratch *scratch)
     }
 
     savedWindStrength = gSwayWindPtr->strength;
+#ifdef TARGET_PC
+    if (PC_LAST_SUBTICK) {
+#endif
     gSwayWavePhase += 13;
     windWave = rsin(gSwayWavePhase) & 0xfff;
     if (windWave >= 0x800)
@@ -185,6 +189,9 @@ int UpdateAndDrawSwayingFoliage(SwayingFoliageScratch *scratch)
     savedScratch = *scratch;
     UpdateClothModelsWithOutput(items, SWAYING_FOLIAGE_COUNT);
     *scratch = savedScratch;
+#ifdef TARGET_PC
+    }
+#endif
     texture = &gMoatFoliageTexture;
     gSwayWindPtr->strength = savedWindStrength;
 

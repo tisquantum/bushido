@@ -4,6 +4,7 @@
 #include <libgte.h>
 #include <inline_o.h>
 #include <libgpu.h>
+#include "substep.h"
 #include "billboard.h"
 #include "gpu_code.h"
 #include "stage_id.h"
@@ -117,12 +118,14 @@ int UpdateAndBuildGroundDecals(GroundDecalScratch *scratch)
     for (i = 0; i < GROUND_DECAL_MAX; i++, decal++) {
         if (decal->life == 0)
             continue;
-        decal->life--;
-        if (gCurrentStageId == STAGE_ID_EXECUTIONERS_COVE &&
-            decal->corners[0].x < SampleOceanWaveEdgeX(decal->corners[0].z)) {
-            decal->life -= SHORELINE_WAVE_DECAY;
-            if (decal->life < 0)
-                decal->life = 0;
+        if (PC_LAST_SUBTICK) {
+            decal->life--;
+            if (gCurrentStageId == STAGE_ID_EXECUTIONERS_COVE &&
+                decal->corners[0].x < SampleOceanWaveEdgeX(decal->corners[0].z)) {
+                decal->life -= SHORELINE_WAVE_DECAY;
+                if (decal->life < 0)
+                    decal->life = 0;
+            }
         }
         for (j = 0; j < 4; j++) {
             scratch->corners[j].vx = decal->corners[j].x - scratch->translation[0];

@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <libgte.h>
 #include <libgpu.h>
+#include "substep.h"
 #include "fighter.h"
 #include "collision_scratch.h"
 #include "combat_event.h"
@@ -567,6 +568,18 @@ void UpdateCombatCollisions(void)
     int groundDeltaY;
     int i;
 
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK) {
+        for (i = 0; i < 2; ++i) {
+            WorldVector *spheres = COLLISION_SCRATCH->bodyPartPos[i];
+            gFighters[i].torsoCenter.x = (spheres[1].x + spheres[2].x + spheres[3].x) / 3;
+            gFighters[i].torsoCenter.y = (spheres[1].y + spheres[2].y + spheres[3].y) / 3;
+            gFighters[i].torsoCenter.z = (spheres[1].z + spheres[2].z + spheres[3].z) / 3;
+        }
+        DrawAllWeaponTrails();
+        return;
+    }
+#endif
     if (gBladeLockState != BLADE_LOCK_NONE) {
         UpdateBladeLockState();
         UpdateBladeLockSeparation();

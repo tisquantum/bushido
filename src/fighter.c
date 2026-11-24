@@ -28,6 +28,12 @@
 #include "cloth.h"
 #include "subtitle.h"
 #include "fighter_cloth.h"
+#include "substep.h"
+
+#ifdef TARGET_PC
+/* Whether each fighter's falling clip has been held at its end since its motion began (the fall code). */
+static unsigned char sPcFallHeld[2];
+#endif
 #include "fighter_cloth_setup.h"
 #include "fighter_face.h"
 #include "billboard.h"
@@ -798,7 +804,7 @@ static void UpdateFighterRunSteering(Fighter *fighter)
             delta = ANGLE_QUARTER;
         }
         fighter->runSpeed -= delta;
-        fighter->runSpeed += fighter->statureScale / 16;
+        fighter->runSpeed += PC_SHARE(fighter->statureScale / 16);
         maxSpeed = fighter->statureScale * 25 >> 5;
         signedSpeed = fighter->runSpeed;
         if (maxSpeed < signedSpeed) {
@@ -807,8 +813,8 @@ static void UpdateFighterRunSteering(Fighter *fighter)
             fighter->runSpeed = 0;
         }
         delta = fighter->runSpeed * fighter->animSpeed >> 12;
-        fighter->anchor.vx += gSinLutQ12[fighter->angles.heading & ANGLE_MASK] * delta >> 16;
-        fighter->anchor.vz += gSinLutQ12[(fighter->angles.heading + ANGLE_QUARTER) & ANGLE_MASK] * delta >> 16;
+        fighter->anchor.vx += PC_SHARE(gSinLutQ12[fighter->angles.heading & ANGLE_MASK] * delta >> 16);
+        fighter->anchor.vz += PC_SHARE(gSinLutQ12[(fighter->angles.heading + ANGLE_QUARTER) & ANGLE_MASK] * delta >> 16);
     } else if (fighter->runSpeed > 0) {
         if (fighter->climbState == FIGHTER_CLIMB_NONE) {
             fighter->turnRemaining = 0;
@@ -830,7 +836,8 @@ void TryStartWallBumpStumble(Fighter *fighter, int x, int z)
         return;
     if (fighter->runSpeed <= 3000)
         return;
-    if (fighter->frameDelta.vx * fighter->frameDelta.vx + fighter->frameDelta.vz * fighter->frameDelta.vz <= 25600)
+    if ((fighter->frameDelta.vx * fighter->frameDelta.vx + fighter->frameDelta.vz * fighter->frameDelta.vz) *
+            PC_TICKS_PER_FRAME * PC_TICKS_PER_FRAME <= 25600)
         return;
 
     floorHeight = QueryFloorHeight(x, fighter->position.vy - 1000, z);
@@ -1288,7 +1295,8 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     fighter->isPovMode = gPovModeEnabled == 1;
     fighter->angleToOpponent = ratan2(opponent->position.vx - fighter->position.vx,
                                       opponent->position.vz - fighter->position.vz);
-    fighter->activeFrames++;
+    if (PC_LAST_SUBTICK)
+        fighter->activeFrames++;
     if (fighter->action == FIGHTER_ACTION_DEAD ||
         fighter->action == FIGHTER_ACTION_FATAL_KO ||
         fighter->action == FIGHTER_ACTION_DEFEATED ||
@@ -1306,13 +1314,13 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     UpdateFighterAnimSpeed(fighter);
     if (fighter->action != FIGHTER_ACTION_DEAD) {
         if (fighter->fallState != FIGHTER_FALL_NONE) {
-            fighter->animFrac += ONE;
+            fighter->animFrac += PC_SHARE(ONE);
         } else if (fighter->climbState != FIGHTER_CLIMB_NONE) {
-            fighter->animFrac += fighter->animSpeed < 0x880 ? 0x880 : fighter->animSpeed;
+            fighter->animFrac += PC_SHARE(fighter->animSpeed < 0x880 ? 0x880 : fighter->animSpeed);
         } else if (fighter->poseBlendWeight > 0) {
-            fighter->animFrac += ONE;
+            fighter->animFrac += PC_SHARE(ONE);
         } else {
-            fighter->animFrac += fighter->animSpeed;
+            fighter->animFrac += PC_SHARE(fighter->animSpeed);
         }
     }
     work = fighter->animFrac >> 12;
@@ -1635,7 +1643,8 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     } else {
         fighter->lockedMoveHeading = fighter->savedAngles.heading;
     }
-    work = fighter->turnRemaining * fighter->animSpeed / 0x6000;
+    work = PC_APPROACH_EX(fighter->turnRemaining * fighter->animSpeed / 0x6000, fighter->turnRemaining,
+                          ONE - fighter->animSpeed * 2 / 3);
     fighter->angles.heading += work;
     fighter->lastTurnStep = work;
     fighter->turnRemaining -= work;
@@ -1818,31 +1827,34 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
         fighter->envPushVel.z = 0;
     }
     if (fighter->velocityRetention >= 0x801) {
-        fighter->velocity.x += fighter->envPushVel.x;
-        fighter->velocity.z += fighter->envPushVel.z;
+        fighter->velocity.x += PC_SHARE(fighter->envPushVel.x);
+        fighter->velocity.z += PC_SHARE(fighter->envPushVel.z);
     }
-    dampedX = fighter->velocity.x * fighter->velocityRetention >> 12;
+    dampedX = PC_DECAY_EX(fighter->velocity.x * fighter->velocityRetention >> 12, fighter->velocity.x,
+                          fighter->velocityRetention);
     fighter->velocity.x = dampedX;
     if ((unsigned int)(dampedX + 3) < 7) {
         fighter->velocity.x = 0;
     }
-    dampedY = fighter->velocity.y * fighter->velocityRetention >> 12;
+    dampedY = PC_DECAY_EX(fighter->velocity.y * fighter->velocityRetention >> 12, fighter->velocity.y,
+                          fighter->velocityRetention);
     fighter->velocity.y = dampedY;
     if ((unsigned int)(dampedY + 3) < 7) {
         fighter->velocity.y = 0;
     }
-    dampedZ = fighter->velocity.z * fighter->velocityRetention >> 12;
+    dampedZ = PC_DECAY_EX(fighter->velocity.z * fighter->velocityRetention >> 12, fighter->velocity.z,
+                          fighter->velocityRetention);
     fighter->velocity.z = dampedZ;
     if ((unsigned int)(dampedZ + 3) < 7) {
         fighter->velocity.z = 0;
     }
-    fighter->anchor.vx += fighter->velocity.x;
-    fighter->anchor.vy += fighter->velocity.y;
-    fighter->anchor.vz += fighter->velocity.z;
+    fighter->anchor.vx += PC_SHARE(fighter->velocity.x);
+    fighter->anchor.vy += PC_SHARE(fighter->velocity.y);
+    fighter->anchor.vz += PC_SHARE(fighter->velocity.z);
     if (fighter->jumpState != FIGHTER_JUMP_NONE) {
-        fighter->anchor.vx += fighter->jumpVel.x;
-        fighter->anchor.vy += fighter->jumpVel.y;
-        fighter->anchor.vz += fighter->jumpVel.z;
+        fighter->anchor.vx += PC_SHARE(fighter->jumpVel.x);
+        fighter->anchor.vy += PC_SHARE(fighter->jumpVel.y);
+        fighter->anchor.vz += PC_SHARE(fighter->jumpVel.z);
     }
     UpdateFighterRunSteering(fighter);
     if (fighter->isPovMode != 0) {
@@ -1850,10 +1862,10 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             if (fighter->action == FIGHTER_ACTION_NEUTRAL) {
                 heldButtons = (unsigned short)fighter->currentInput.held;
                 if (heldButtons == PADLup) {
-                    turnAdjusted = (unsigned short)fighter->turnRemaining - 32;
+                    turnAdjusted = (unsigned short)fighter->turnRemaining - PC_SHARE(32);
                     fighter->turnRemaining = turnAdjusted;
                 } else if (heldButtons == PADLdown) {
-                    turnAdjusted = (unsigned short)fighter->turnRemaining + 32;
+                    turnAdjusted = (unsigned short)fighter->turnRemaining + PC_SHARE(32);
                     fighter->turnRemaining = turnAdjusted;
                 }
             }
@@ -1943,12 +1955,12 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
         }
         fighter->shadowGroundY = work;
     } else if (fighter->jumpState == FIGHTER_JUMP_AIRBORNE) {
-        fighter->jumpVel.y += 62;
+        fighter->jumpVel.y += PC_SHARE(62);
         airClearance = fighter->statureScale * 225 >> 10;
         if (scratch->dest.y + airClearance >= work) {
-            fighter->jumpVel.x = fighter->jumpVel.x * 7 / 8;
-            fighter->jumpVel.y = fighter->jumpVel.y * 7 / 8;
-            fighter->jumpVel.z = fighter->jumpVel.z * 7 / 8;
+            fighter->jumpVel.x = PC_DECAY_EX(fighter->jumpVel.x * 7 / 8, fighter->jumpVel.x, 0xe00);
+            fighter->jumpVel.y = PC_DECAY_EX(fighter->jumpVel.y * 7 / 8, fighter->jumpVel.y, 0xe00);
+            fighter->jumpVel.z = PC_DECAY_EX(fighter->jumpVel.z * 7 / 8, fighter->jumpVel.z, 0xe00);
             obstructedAirborne = 0;
             if (work == FLOOR_HEIGHT_NONE || work == -30000) {
                 fighter->anchor.vx -= scratch->dest.x - fighter->position.vx;
@@ -2235,6 +2247,22 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                     fighter->groundY = work;
                 }
                 if (fighter->fallState != FIGHTER_FALL_NONE) {
+#ifdef TARGET_PC
+                    if (fighter->motionJustChanged != 0) {
+                        sPcFallHeld[player] = 0;
+                    }
+                    if (fighter->animFrame == fighter->placement->frameLimit - 1) {
+                        fighter->animFrame--;
+                        fighter->velocity.y += 500;
+                        sPcFallHeld[player] = 1;
+                    } else if (fighter->action != FIGHTER_ACTION_FALL &&
+                               !(g_pcFrameTicks > 1 && sPcFallHeld[player])) {
+                        fighter->velocity.y += PC_SHARE((fighter->fallGravityTicks + 1) * 52);
+                        if (PC_LAST_SUBTICK) {
+                            fighter->fallGravityTicks++;
+                        }
+                    }
+#else
                     if (fighter->animFrame == fighter->placement->frameLimit - 1) {
                         fighter->animFrame--;
                         fighter->velocity.y += 500;
@@ -2242,6 +2270,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                         fighter->fallGravityTicks++;
                         fighter->velocity.y += fighter->fallGravityTicks * 52;
                     }
+#endif
                 }
                 fighter->shadowGroundY = work;
             } else {
@@ -2253,10 +2282,12 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     fighter->cameraTargetPos.z = fighter->position.vz;
     value = -fighter->statureScale * 1152 / ONE;
     if (fighter->position.vy - value < fighter->groundY) {
-        fighter->cameraTargetPos.y += (fighter->position.vy - fighter->cameraTargetPos.y) / 2;
+        fighter->cameraTargetPos.y += PC_APPROACH_EX((fighter->position.vy - fighter->cameraTargetPos.y) / 2,
+                                                     fighter->position.vy - fighter->cameraTargetPos.y, PC_KEEP(2));
     } else {
         work = fighter->groundY + value;
-        fighter->cameraTargetPos.y += (work - fighter->cameraTargetPos.y) / 8;
+        fighter->cameraTargetPos.y += PC_APPROACH_EX((work - fighter->cameraTargetPos.y) / 8,
+                                                     work - fighter->cameraTargetPos.y, PC_KEEP(8));
     }
     if (fighter->poseBlendWeight > 0) {
         BlendPoseJointRotations(player, pose[0].joint, fighter->savedPose.joint, fighter->poseBlendWeight,
@@ -2341,7 +2372,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
         }
     }
     if (fighter->poseBlendWeight > 0) {
-        fighter->poseBlendWeight -= fighter->poseBlendStep;
+        fighter->poseBlendWeight -= PC_SHARE(fighter->poseBlendStep);
         if (fighter->poseBlendWeight < 0) {
             fighter->poseBlendWeight = 0;
         }
@@ -2377,7 +2408,8 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     fighter->isVerticalSwing = IsWeaponSwingPlaneVertical(fighter);
     fighter->isSupine = IsFighterSupine(fighter);
     if (fighter->pitFallTimer != 0) {
-        fighter->pitFallTimer++;
+        if (PC_LAST_SUBTICK)
+            fighter->pitFallTimer++;
     } else if (gCurrentStageId == 4) {
         if (fighter->position.vy >= 4000) {
             fighter->pitFallTimer = 1;
@@ -2399,7 +2431,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
                                fighter->surfaceFlags & FLOOR_ATTR_SURFACE_MASK, fighter->groundY);
     }
     if (gGameState == GAME_STATE_UPDATE_COMBAT) {
-        if (fighter->rumbleTimer > 0) {
+        if (PC_LAST_SUBTICK && fighter->rumbleTimer > 0) {
             fighter->rumbleTimer--;
         }
         gRumblePulses[player].dutyStep = (fighter->isCpu == 0 && fighter->rumbleTimer != 0)
@@ -2425,7 +2457,7 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
         work = ((unsigned int)moveSq << 16) >> (19 - (shift >> 1));
     }
     stationary = 0;
-    if (work < 100) {
+    if (work * PC_TICKS_PER_FRAME < 100) {
         if (fighter->action == FIGHTER_ACTION_NEUTRAL ||
             fighter->action == FIGHTER_ACTION_CROUCH ||
             fighter->action == FIGHTER_ACTION_DOWNED) {
@@ -2556,18 +2588,18 @@ void UpdateFighterLookAngles(Fighter *fighter)
                 targetRoll = 512 - angle / 2;
                 targetYaw = baseYaw + angle;
                 targetPitch = angle - 512;
-                fighter->lookRoll += (targetRoll - fighter->lookRoll) / 4;
-                fighter->lookYaw += (targetYaw - fighter->lookYaw) / 4;
-                fighter->lookPitch += (targetPitch - fighter->lookPitch) / 4;
+                fighter->lookRoll += PC_APPROACH_EX((targetRoll - fighter->lookRoll) / 4, targetRoll - fighter->lookRoll, PC_KEEP(4));
+                fighter->lookYaw += PC_APPROACH_EX((targetYaw - fighter->lookYaw) / 4, targetYaw - fighter->lookYaw, PC_KEEP(4));
+                fighter->lookPitch += PC_APPROACH_EX((targetPitch - fighter->lookPitch) / 4, targetPitch - fighter->lookPitch, PC_KEEP(4));
             } else {
                 fighter->lookRoll = 0;
-                fighter->lookYaw += (baseYaw + dx - fighter->lookYaw) / 4;
-                fighter->lookPitch += (dx - fighter->lookPitch) / 4;
+                fighter->lookYaw += PC_APPROACH_EX((baseYaw + dx - fighter->lookYaw) / 4, baseYaw + dx - fighter->lookYaw, PC_KEEP(4));
+                fighter->lookPitch += PC_APPROACH_EX((dx - fighter->lookPitch) / 4, dx - fighter->lookPitch, PC_KEEP(4));
             }
         } else {
             fighter->lookRoll = 0;
-            fighter->lookYaw += (baseYaw - fighter->lookYaw) / 4;
-            fighter->lookPitch += (angle - fighter->lookPitch) / 4;
+            fighter->lookYaw += PC_APPROACH_EX((baseYaw - fighter->lookYaw) / 4, baseYaw - fighter->lookYaw, PC_KEEP(4));
+            fighter->lookPitch += PC_APPROACH_EX((angle - fighter->lookPitch) / 4, angle - fighter->lookPitch, PC_KEEP(4));
         }
     } else {
         fighter->lookPitch = 0;

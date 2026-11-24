@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <libgte.h>
 #include <libgpu.h>
+#include "substep.h"
 #include "light.h"
 #include "scene_node.h"
 #include "render_scratch.h"
@@ -115,7 +116,7 @@ void UpdateOceanWaveMesh(void)
     for (i = 0; i < OCEAN_COL_COUNT; ++i) {
         sinVal = gSinLutQ12[gOceanWavePhases[i] & 0xfff];
         gOceanWaveGridX[0][i] = (sinVal * 925) >> 10;
-        gOceanWavePhases[i] += 18;
+        gOceanWavePhases[i] += PC_SHARE(18);
     }
 
     for (i = 1; i < OCEAN_BAND_COUNT; ++i) {
@@ -123,13 +124,13 @@ void UpdateOceanWaveMesh(void)
             gap = OCEAN_CELL_STEP - (gOceanWaveGridX[i][col] -
                                      gOceanWaveGridX[i - 1][col]);
             if (gap < 0) {
-                step = gap / 16;
+                step = PC_APPROACH_EX(gap / 16, gap, PC_KEEP(16));
             } else {
-                step = gap / 10;
+                step = PC_APPROACH_EX(gap / 10, gap, PC_KEEP(10));
             }
             gOceanWaveGridX[i][col] += step;
             if (i == OCEAN_BAND_COUNT - 1) {
-                gOceanWaveEdgeVel[col] = step;
+                gOceanWaveEdgeVel[col] = PC_FIRST_SUBTICK ? step : gOceanWaveEdgeVel[col] + step;
             }
         }
     }

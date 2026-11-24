@@ -8,6 +8,7 @@
 #include <libgte.h>
 #include <libsn.h>
 
+#include "substep.h"
 #include "pad.h"
 #include "stage_ambient_sound.h"
 #include "cd.h"
@@ -1226,6 +1227,14 @@ void BuildFighterInput(int player, PadInputFrame *out)
     }
 
     if (gFighters[player].isCpu) {
+#ifdef TARGET_PC
+        if (!PC_LAST_SUBTICK) {
+            *out = gFighters[player].aiPrevInput;
+            out->pressed = 0;
+            out->released = 0;
+            return;
+        }
+#endif
         UpdateFighterAiInput(player, out);
     } else {
         *out = gPadState;
@@ -1243,9 +1252,11 @@ void BuildFighterInput(int player, PadInputFrame *out)
         }
     }
 
-    for (frame = 0; frame < FIGHTER_INPUT_HISTORY_LEN - 1; ++frame)
-        gFighterInputHistory[frame][player] = gFighterInputHistory[frame + 1][player];
-    gFighterInputHistory[FIGHTER_INPUT_HISTORY_LEN - 1][player] = out->held;
+    if (PC_LAST_SUBTICK) {
+        for (frame = 0; frame < FIGHTER_INPUT_HISTORY_LEN - 1; ++frame)
+            gFighterInputHistory[frame][player] = gFighterInputHistory[frame + 1][player];
+        gFighterInputHistory[FIGHTER_INPUT_HISTORY_LEN - 1][player] = out->held;
+    }
 }
 
 void StopCombatRumbleAndAudio(void)
@@ -1300,7 +1311,8 @@ void UpdateCombatState(void)
     unsigned int heldButtons;
 
     paused = gCombatPaused;
-    gStateFrameTimer++;
+    if (PC_LAST_SUBTICK)
+        gStateFrameTimer++;
     if (paused) {
         humanPlayerCount = gHumanPlayerCount;
         if ((humanPlayerCount == 2 && (gPadState.pressed & BOTH_PADS_START)) ||
@@ -1358,17 +1370,20 @@ void UpdateCombatState(void)
     }
 
     UpdateSceneCameraAndWind();
-    UpdateCombatDistanceAndKoTimer();
+    if (PC_FIRST_SUBTICK)
+        UpdateCombatDistanceAndKoTimer();
     BuildFighterInput(0, &fighterInput);
     UpdateFighterFrame(0, &fighterInput);
     BuildFighterInput(1, &fighterInput);
     UpdateFighterFrame(1, &fighterInput);
     UpdateCombatCollisions();
     UpdateAndDrawSubWeapons();
-    UpdateStoryHonorWindow();
+    if (PC_LAST_SUBTICK)
+        UpdateStoryHonorWindow();
 
     povMode = gPovModeEnabled;
-    gCombatFrameCounter++;
+    if (PC_LAST_SUBTICK)
+        gCombatFrameCounter++;
     if (povMode == 1) {
         int heading = (gPlayMode == PLAY_MODE_LINK && gLinkRole == LINK_ROLE_CLIENT)
                     ? gFighters[1].angles.heading : gFighters[0].angles.heading;
@@ -1377,9 +1392,11 @@ void UpdateCombatState(void)
         TraceCameraSightlineTo(gFighters[0].position.vx, gFighters[0].position.vz);
         TraceCameraSightlineTo(gFighters[1].position.vx, gFighters[1].position.vz);
     }
-    UpdateStageEvents();
+    if (PC_LAST_SUBTICK)
+        UpdateStageEvents();
     EndSceneFrame();
-    UpdateAmbientSounds();
+    if (PC_LAST_SUBTICK)
+        UpdateAmbientSounds();
     FlushQueuedSounds();
 #ifndef VERSION_JP
     if (gSubtitleActive)
@@ -1387,6 +1404,19 @@ void UpdateCombatState(void)
 #endif
 
     playMode = gPlayMode;
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK) {
+        if (playMode == PLAY_MODE_PRACTICE ||
+            ((playMode == PLAY_MODE_VS || playMode == PLAY_MODE_LINK) && gContinueCount > 0)) {
+            DrawWinCountHud();
+        } else if (playMode == PLAY_MODE_SLASH) {
+            DrawSlashModeHud(gSlashLevelIndex + 1, gSlashLevelIndex * SLASH_BOUTS_PER_LEVEL + gSlashBoutIndex + 1);
+        } else if (playMode == PLAY_MODE_STORY && gStoryChallengerTimer > 0) {
+            DrawHudBanner(HUD_BANNER_CHALLENGER);
+        }
+        return;
+    }
+#endif
     if (playMode == PLAY_MODE_PRACTICE) {
         DrawWinCountHud();
         if (gPostKoTimer == PRACTICE_WIN_RECORD_FRAME && !gPracticeWinRecorded) {

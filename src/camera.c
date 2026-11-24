@@ -6,6 +6,7 @@
 #include <libgte.h>
 #include <inline_o.h>
 
+#include "substep.h"
 #include "fighter.h"
 #include "game_state.h"
 #include "camera.h"
@@ -85,7 +86,7 @@ static int DivideSignedAngle(int angle, int divisor)
     if (angle > ANGLE_HALF - 1) {
         angle -= ANGLE_FULL;
     }
-    return angle / divisor;
+    return PC_APPROACH_EX(angle / divisor, angle, PC_KEEP(divisor));
 }
 
 /* kept: written in place, the record's base stays in a register; that the authors wrote helpers is not established */
@@ -93,18 +94,19 @@ static inline void ApproachCameraTarget(VECTOR *focus)
 {
     int step;
 
-    step = (focus->vx - gCameraState.target.vx) / 4;
+    step = PC_APPROACH_EX((focus->vx - gCameraState.target.vx) / 4, focus->vx - gCameraState.target.vx, PC_KEEP(4));
     gCameraState.target.vx += step;
-    step = (focus->vy - gCameraState.target.vy) / 4;
+    step = PC_APPROACH_EX((focus->vy - gCameraState.target.vy) / 4, focus->vy - gCameraState.target.vy, PC_KEEP(4));
     gCameraState.target.vy += step;
-    step = (focus->vz - gCameraState.target.vz) / 4;
+    step = PC_APPROACH_EX((focus->vz - gCameraState.target.vz) / 4, focus->vz - gCameraState.target.vz, PC_KEEP(4));
     gCameraState.target.vz += step;
 }
 
 /* kept: written in place, the record's base stays in a register; that the authors wrote helpers is not established */
 static inline void UpdateCameraDistance(int targetDist, int mode, int bladeLockState)
 {
-    int nextDistance = gCameraState.distance + (targetDist - gCameraState.distance) / 12;
+    int nextDistance = gCameraState.distance + PC_APPROACH_EX((targetDist - gCameraState.distance) / 12,
+                                                              targetDist - gCameraState.distance, PC_KEEP(12));
 
     gCameraState.distance = nextDistance;
     if (mode == BATTLE_CAMERA_LIVE && bladeLockState == 0) {
@@ -407,7 +409,8 @@ void UpdatePovCamera(Fighter *fighter)
     if (!isStanding) {
         adjustment += (-(fighter->statureScale * 950)) / ONE;
     }
-    cameraY = camera->target.vy + (adjustment - camera->target.vy) / 4;
+    cameraY = camera->target.vy + PC_APPROACH_EX((adjustment - camera->target.vy) / 4, adjustment - camera->target.vy,
+                                                 PC_KEEP(4));
     camera->target.vy = cameraY;
 
     adjustment = (-fighter->angleToOpponent - camera->angles.vy) & ANGLE_MASK;
@@ -419,7 +422,8 @@ void UpdatePovCamera(Fighter *fighter)
     adjustment = aim * (ANGLE_QUARTER - adjustment) >> 10;
     if (isStanding && fighter->opponent->isStationary != 0 && gFighterDistanceXZ >= 8000)
         adjustment = 0;
-    camera->angles.vx += (adjustment - camera->angles.vx) / 8;
+    camera->angles.vx += PC_APPROACH_EX((adjustment - camera->angles.vx) / 8, adjustment - camera->angles.vx,
+                                        PC_KEEP(8));
     camera->angles.vz = 0;
 
     aim = -fighter->angles.heading;
@@ -429,7 +433,8 @@ void UpdatePovCamera(Fighter *fighter)
         adjustment = aim;
     if (fighter->placement->facingMode == MOTION_FACING_INVERTED) {
         adjustment += ANGLE_HALF;
-        camera->angles.vy += (adjustment - camera->angles.vy) / 8;
+        camera->angles.vy += PC_APPROACH_EX((adjustment - camera->angles.vy) / 8, adjustment - camera->angles.vy,
+                                            PC_KEEP(8));
     } else {
         camera->angles.vy = adjustment;
     }

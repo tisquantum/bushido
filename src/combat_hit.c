@@ -8,6 +8,7 @@
 #include <libgte.h>
 #include <inline_o.h>
 
+#include "substep.h"
 #include "fighter.h"
 #include "world_vector.h"
 #include "fighter_hit_sphere.h"
@@ -511,19 +512,21 @@ void UpdateBladeLockInput(Fighter *fighter)
         return;
     }
 
-    pushed = 0;
-    for (i = 0; i < 3; i++) {
-        if (fighter->currentInput.pressed & gBladeLockMashButtons[i]) {
-            fighter->bladeLockMeter += (fighter->clashPower * 2) / (fighter->bladeLockTimers[i] + 1);
-            fighter->bladeLockTimers[i] = 0;
-            pushed = 1;
-        } else {
-            fighter->bladeLockTimers[i]++;
+    if (PC_LAST_SUBTICK) {
+        pushed = 0;
+        for (i = 0; i < 3; i++) {
+            if (fighter->currentInput.pressed & gBladeLockMashButtons[i]) {
+                fighter->bladeLockMeter += (fighter->clashPower * 2) / (fighter->bladeLockTimers[i] + 1);
+                fighter->bladeLockTimers[i] = 0;
+                pushed = 1;
+            } else {
+                fighter->bladeLockTimers[i]++;
+            }
         }
-    }
 
-    if (!pushed) {
-        fighter->bladeLockMeter = (fighter->bladeLockMeter * 7) / 8;
+        if (!pushed) {
+            fighter->bladeLockMeter = (fighter->bladeLockMeter * 7) / 8;
+        }
     }
 
     if (fighter->action == FIGHTER_ACTION_BLADE_LOCK) {

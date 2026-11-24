@@ -7,6 +7,7 @@
 #include <libgpu.h>
 #include <inline_o.h>
 
+#include "substep.h"
 #include "weapon_trail.h"
 #include "fighter.h"
 #include "fighter_hit_sphere.h"
@@ -245,6 +246,9 @@ static void DrawWeaponTrail(WeaponTrailWork *work)
     int lod, scale, parts, newestIndex;
     POLY_GT4 *packet;
     unsigned int startColor, endColor;
+#ifdef TARGET_PC
+    int liveEdge = 0;
+#endif
 
     if (trailFlags & WEAPON_TRAIL_FLAG_RESET) {
         trail->flags = trailFlags & ~WEAPON_TRAIL_FLAG_RESET;
@@ -253,7 +257,7 @@ static void DrawWeaponTrail(WeaponTrailWork *work)
             trail->edges[age].last = work->last;
         }
         trail->cursor = 0;
-    } else if (!(trailFlags & WEAPON_TRAIL_FLAG_FREEZE)) {
+    } else if (!(trailFlags & WEAPON_TRAIL_FLAG_FREEZE) && PC_LAST_SUBTICK) {
         int cursor = trail->cursor;
         int next;
         age = (cursor - 1) & WEAPON_TRAIL_HISTORY_MASK;
@@ -269,6 +273,13 @@ static void DrawWeaponTrail(WeaponTrailWork *work)
                          &trail->edges[trail->cursor].last);
         trail->cursor = (trail->cursor + 2) & WEAPON_TRAIL_HISTORY_MASK;
     }
+#ifdef TARGET_PC
+    else if (!(trailFlags & WEAPON_TRAIL_FLAG_FREEZE)) {
+        trail->edges[trail->cursor].first = work->first;
+        trail->edges[trail->cursor].last = work->last;
+        liveEdge = 1;
+    }
+#endif
 
     SetRotMatrix(&work->matrix);
     SetTransMatrix(&gZeroTransMatrix);
@@ -279,6 +290,11 @@ static void DrawWeaponTrail(WeaponTrailWork *work)
     parts = 1 << lod;
     scale = 12 - lod;
     newestIndex = trail->cursor - 1;
+#ifdef TARGET_PC
+    if (liveEdge) {
+        newestIndex = trail->cursor;
+    }
+#endif
     packet = work->nextPacket;
     for (age = 0; age < WEAPON_TRAIL_VISIBLE_SEGMENTS; ++age) {
         if (gOptionMonochrome == 0) {

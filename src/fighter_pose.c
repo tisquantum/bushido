@@ -42,7 +42,14 @@ typedef struct VramClutCoord {
 static SceneNode gFighterSkeletons[2][20];
 static SceneNode gFighterShadows[2][20];
 static MATRIX *gFighterSkinMatrices[2][40];
+#ifdef TARGET_PC
+/* The select screen's host figure, side 2, writes a third row (see the loop in UpdateAndEnqueueFighterPose).
+ * The console's link puts gMoatBillboardNodes after the table, which nothing comes of; the port's puts its
+ * own globals there, so the row is part of the table. */
+static MATRIX *gFighterJointWorldMatrices[3][40];
+#else
 static MATRIX *gFighterJointWorldMatrices[2][40];
+#endif
 
 /* Skeleton joint j (1..17) takes pose joint gAnimToSkeletonJointMap[j - 1]. */
 int gAnimToSkeletonJointMap[FIGHTER_JOINT_COUNT - 1] = {

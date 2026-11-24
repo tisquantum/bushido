@@ -6,6 +6,7 @@
 #include <rand.h>
 #include <inline_o.h>
 
+#include "substep.h"
 #include "weather.h"
 #include "cloth.h"
 #include "gpu_code.h"
@@ -190,6 +191,21 @@ int UpdateAndDrawSnow(WeatherScratch *scratch)
             scratch->particle.y = -6000;
             scratch->particle.z = ((rngLcg >> 16) & 0x7fff) - WEATHER_WRAP_HALF;
         } else if (scratch->particle.offscreen == 0) {
+#ifdef TARGET_PC
+            if (!PC_LAST_SUBTICK) {
+                scratch->particle.x += PC_SHARE(windX) - scratch->cameraDelta.vx;
+                scratch->particle.y += PC_SHARE(16) - scratch->cameraDelta.vy;
+                scratch->particle.z += PC_SHARE(windZ) - scratch->cameraDelta.vz;
+            } else {
+                rngLcg += rngLcg << 2;
+                rngLcg += i;
+                rngLfsr = (rngLfsr >> 16) ^ (rngLfsr << 16);
+                rngLfsr = (((rngLfsr >> 31) & 1) | (rngLfsr << 1)) ^ ((rngLfsr >> 29) & 1);
+                scratch->particle.x += ((rngLfsr >> 12) & 0xf) - 8 - scratch->cameraDelta.vx + PC_SHARE(windX);
+                scratch->particle.y += ((rngLcg >> (rngLfsr & 3)) & 7) + PC_SHARE(16) - scratch->cameraDelta.vy;
+                scratch->particle.z += ((rngLfsr >> 20) & 0xf) - 8 - scratch->cameraDelta.vz + PC_SHARE(windZ);
+            }
+#else
             rngLcg += rngLcg << 2;
             rngLcg += i;
             rngLfsr = (rngLfsr >> 16) ^ (rngLfsr << 16);
@@ -197,12 +213,15 @@ int UpdateAndDrawSnow(WeatherScratch *scratch)
             scratch->particle.x += ((rngLfsr >> 12) & 0xf) - 8 - scratch->cameraDelta.vx + windX;
             scratch->particle.y += ((rngLcg >> (rngLfsr & 3)) & 7) + 16 - scratch->cameraDelta.vy;
             scratch->particle.z += ((rngLfsr >> 20) & 0xf) - 8 - scratch->cameraDelta.vz + windZ;
+#endif
         } else {
-            rngLcg += rngLcg << 2;
-            rngLcg += i;
-            scratch->particle.x += windX - scratch->cameraDelta.vx;
-            scratch->particle.y += 1000 - scratch->cameraDelta.vy;
-            scratch->particle.z += windZ - scratch->cameraDelta.vz;
+            if (PC_LAST_SUBTICK) {
+                rngLcg += rngLcg << 2;
+                rngLcg += i;
+            }
+            scratch->particle.x += PC_SHARE(windX) - scratch->cameraDelta.vx;
+            scratch->particle.y += PC_SHARE(1000) - scratch->cameraDelta.vy;
+            scratch->particle.z += PC_SHARE(windZ) - scratch->cameraDelta.vz;
         }
 
         if (drawnCount < SNOW_MAX_QUADS) {
@@ -279,8 +298,10 @@ int UpdateAndDrawSnow(WeatherScratch *scratch)
         }
         *particle = scratch->particle;
     }
-    work->prngSeed[0] = rngLfsr ^ rand();
-    work->prngSeed[1] = rngLcg ^ rand();
+    if (PC_LAST_SUBTICK) {
+        work->prngSeed[0] = rngLfsr ^ rand();
+        work->prngSeed[1] = rngLcg ^ rand();
+    }
     return 0;
 }
 
@@ -369,7 +390,7 @@ int UpdateAndDrawRain(WeatherScratch *scratch)
     for (i = 0; i < RAIN_PARTICLE_COUNT; i++, particle++) {
         if (work->splashState[i] != RAIN_STATE_FALLING) {
             if (work->splashState[i] == RAIN_STATE_INACTIVE) {
-                if (work->restartTries < scratch->density * 2) {
+                if (PC_LAST_SUBTICK && work->restartTries < scratch->density * 2) {
                     work->restartTries++;
                     scratch->prngSeed[1] = scratch->prngSeed[1] + (scratch->prngSeed[1] << 2) + 1;
                     if ((scratch->prngSeed[1] & 0xc0008000) == 0) {
@@ -383,7 +404,7 @@ int UpdateAndDrawRain(WeatherScratch *scratch)
                         work->splashState[i] = RAIN_STATE_FALLING;
                     }
                 }
-            } else {
+            } else if (PC_LAST_SUBTICK) {
                 work->splashState[i]++;
             }
         } else {
@@ -391,16 +412,16 @@ int UpdateAndDrawRain(WeatherScratch *scratch)
             scratch->particle.y = particle->y;
             scratch->particle.z = particle->z;
             if (particle->offscreen < 0) {
-                scratch->particle.x += scratch->windX - scratch->cameraDelta.vx;
-                scratch->particle.y += 2880 - scratch->cameraDelta.vy;
-                scratch->particle.z += scratch->windZ - scratch->cameraDelta.vz;
+                scratch->particle.x += PC_SHARE(scratch->windX) - scratch->cameraDelta.vx;
+                scratch->particle.y += PC_SHARE(2880) - scratch->cameraDelta.vy;
+                scratch->particle.z += PC_SHARE(scratch->windZ) - scratch->cameraDelta.vz;
                 if (scratch->particle.y + scratch->cameraPos.vy >= 0) {
                     work->splashState[i] = RAIN_STATE_INACTIVE;
                 }
             } else {
-                scratch->particle.x += scratch->windX - scratch->cameraDelta.vx;
-                scratch->particle.y += 720 - scratch->cameraDelta.vy;
-                scratch->particle.z += scratch->windZ - scratch->cameraDelta.vz;
+                scratch->particle.x += PC_SHARE(scratch->windX) - scratch->cameraDelta.vx;
+                scratch->particle.y += PC_SHARE(720) - scratch->cameraDelta.vy;
+                scratch->particle.z += PC_SHARE(scratch->windZ) - scratch->cameraDelta.vz;
                 floorY = work->settings.floorHeightAt(scratch->particle.x + scratch->cameraPos.vx,
                                                       scratch->particle.z + scratch->cameraPos.vz);
                 if (floorY == WEATHER_NO_FLOOR) {

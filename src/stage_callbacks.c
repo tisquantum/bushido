@@ -5,6 +5,7 @@
 #include <libetc.h>
 #include <libgte.h>
 #include <libgpu.h>
+#include "substep.h"
 #include "fighter_skeleton.h"
 #include "otz.h"
 #include "scene.h"
@@ -222,7 +223,7 @@ void UpdateStage1Waterfall(void)
     UpdateStage1WaterfallSplashes();
     QueueAnimatedVramTextures(0, 0);
     QueueAnimatedVramTextures(1, 1);
-    if ((gSceneFrameCounter & 3) == 0) {
+    if (PC_LAST_SUBTICK && (gSceneFrameCounter & 3) == 0) {
         direction.vx = 0;
         direction.vy = -4096;
         direction.vz = 0;
@@ -366,7 +367,7 @@ void UpdateStage11PropsAndLight(void)
         *gRenderQueueCursor++ = node++;
     }
 
-    phase = gStage11LightPhase + 16;
+    phase = gStage11LightPhase + PC_SHARE(16);
     intensity = gSinLutQ12[phase & 0xfff];
     gStage11LightPhase = phase;
     if (intensity < 0)
@@ -438,7 +439,7 @@ void UpdateCoveShoreline(void)
     }
     UpdateOceanWaveMesh();
     UpdateAndDrawStageGroundDecals();
-    if ((gSceneFrameCounter & 3) == 0) {
+    if (PC_LAST_SUBTICK && (gSceneFrameCounter & 3) == 0) {
         direction.vx = 4096;
         direction.vy = -1024;
         direction.vz = 0;
@@ -630,7 +631,7 @@ void UpdateGrottoStream(void)
     VECTOR position;
 
     UpdateWaterTextureScroll(0);
-    if ((gSceneFrameCounter & 3) == 0) {
+    if (PC_LAST_SUBTICK && (gSceneFrameCounter & 3) == 0) {
         direction.vx = 4096;
         direction.vy = -1024;
         direction.vz = 0;

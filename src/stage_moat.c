@@ -4,6 +4,7 @@
 #include <libgte.h>
 #include <libgpu.h>
 
+#include "substep.h"
 #include "gpu_code.h"
 #include "effect_slot.h"
 #include "fighter_skeleton.h"
@@ -215,7 +216,7 @@ void UpdateMoatFighterEffects(int side, SceneNode *joints)
     } else {
         SetFighterUseSpecialLight(side, 1);
     }
-    if ((gSceneFrameCounter & 7) == 7) {
+    if (PC_LAST_SUBTICK && (gSceneFrameCounter & 7) == 7) {
         offset.vx = 100;
         offset.vy = 0;
         offset.vz = 0;

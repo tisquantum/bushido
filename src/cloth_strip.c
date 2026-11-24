@@ -7,6 +7,7 @@
 #include <inline_o.h>
 #include <rand.h>
 
+#include "substep.h"
 #include "cloth.h"
 #include "cloth_strip.h"
 #include "gpu_code.h"
@@ -243,13 +244,15 @@ int UpdateAndDrawStageClothStrips(StageClothRenderContext *ctx)
     item.outputPositions = mesh->points;
     item.transform = &mesh->matrix;
     item.colliderInput = 0;
-    savedStrength = gStageClothWindPtr->strength;
-    gStageClothWindPtr->strength = savedStrength / 4;
-    savedAngle = gStageClothWindPtr->angle;
-    gStageClothWindPtr->angle += (rand() & 127) - 64;
-    UpdateClothModelsWithOutput(&item, 1);
-    gStageClothWindPtr->angle = savedAngle;
-    gStageClothWindPtr->strength = savedStrength;
+    if (PC_LAST_SUBTICK) {
+        savedStrength = gStageClothWindPtr->strength;
+        gStageClothWindPtr->strength = savedStrength / 4;
+        savedAngle = gStageClothWindPtr->angle;
+        gStageClothWindPtr->angle += (rand() & 127) - 64;
+        UpdateClothModelsWithOutput(&item, 1);
+        gStageClothWindPtr->angle = savedAngle;
+        gStageClothWindPtr->strength = savedStrength;
+    }
     *ctx = *savedCtx;
 
     ComputeStageClothNormals(ctx, mesh);

@@ -29,4 +29,8 @@ int AlignUp4(int size);
 void SetAllClothResetFlags(void);
 void ClearAllClothResetFlags(void);
 
+#ifdef TARGET_PC
+void PcRestoreFighterCloth(void);
+#endif
+
 #endif

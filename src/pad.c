@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <libetc.h>
 
+#include "substep.h"
 #include "game_state.h"
 #include "globals.h"
 #include "link.h"
@@ -193,6 +194,14 @@ void PollControllers(void)
     unsigned int port1Header = ((PadPacket *)gPadReceiveBuffers[1])->word[0];
     unsigned int port1Analog = ((PadPacket *)gPadReceiveBuffers[1])->word[1];
     unsigned int portButtons, current, prev;
+
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK) {
+        gPadState.pressed = 0;
+        gPadState.released = 0;
+        return;
+    }
+#endif
     PadPacket *portPacket;
     int axis;
 
