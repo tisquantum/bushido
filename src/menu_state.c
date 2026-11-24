@@ -305,7 +305,8 @@ unsigned char gPracticeStageSelectTable[4] = {
 
 #ifdef TARGET_PC
 #define CHAR_SELECT_BACK_HOLD_FRAMES 30 /* one second */
-int NetplayActive(void);
+/* Played, watched or prepared (port/src/netplay.h): a spectator must run the match as the players do. */
+int NetplayOnlineSimulation(void);
 static short sCancelHeldFrames;
 #endif
 
@@ -452,7 +453,7 @@ void UpdateCharacterSelect(void)
      * menu. A press still steps back a choice as before. Not in Link mode, a Story challenger bout, or an
      * online match, which have their own ways out. */
     if (gGameState == GAME_STATE_UPDATE_CHARACTER_SELECT && gPlayMode != PLAY_MODE_LINK &&
-        gStoryChallengerActive == 0 && gStoryChallengerTimer == 0 && !NetplayActive() &&
+        gStoryChallengerActive == 0 && gStoryChallengerTimer == 0 && !NetplayOnlineSimulation() &&
         (gPadState.held & BOTH_PADS_CANCEL)) {
         if (++sCancelHeldFrames >= CHAR_SELECT_BACK_HOLD_FRAMES)
             gGameState = GAME_STATE_INIT_MAIN_MENU;
