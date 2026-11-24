@@ -17,6 +17,14 @@
 #include "stage_id.h"
 #include "globals.h"
 
+#ifdef TARGET_PC
+/* Widescreen: the picture reaches this far past the console's left and right edges (psxport.h), and snow
+ * falls across all of it. */
+#define SNOW_SCREEN_MARGIN g_pcScreenMargin
+#else
+#define SNOW_SCREEN_MARGIN 0
+#endif
+
 typedef struct {
     unsigned short tpage;
     unsigned short clut;
@@ -231,7 +239,8 @@ int UpdateAndDrawSnow(WeatherScratch *scratch)
             gte_stsxy(&scratch->screenPos[0]);
             screenX = scratch->screenPos[0].vx;
             screenY = scratch->screenPos[0].vy;
-            if ((u_int)(screenX + 8) < DISPLAY_WIDTH + 16 && (u_int)(screenY + 4) < DISPLAY_HEIGHT + 8) {
+            if ((u_int)(screenX + 8 + SNOW_SCREEN_MARGIN) < DISPLAY_WIDTH + 16 + 2 * SNOW_SCREEN_MARGIN &&
+                (u_int)(screenY + 4) < DISPLAY_HEIGHT + 8) {
                 gte_stszotz(&scratch->depth);
                 sizeIndex = 31 - (scratch->depth >> 8);
                 if (sizeIndex < 0) {
@@ -268,7 +277,8 @@ int UpdateAndDrawSnow(WeatherScratch *scratch)
                 for (wrapIndex = 0; wrapIndex < 3; wrapIndex++) {
                     screenX = scratch->screenPos[wrapIndex].vx;
                     screenY = scratch->screenPos[wrapIndex].vy;
-                    if ((u_int)(screenX + 8) < DISPLAY_WIDTH + 16 && (u_int)(screenY + 4) < DISPLAY_HEIGHT + 8) {
+                    if ((u_int)(screenX + 8 + SNOW_SCREEN_MARGIN) < DISPLAY_WIDTH + 16 + 2 * SNOW_SCREEN_MARGIN &&
+                        (u_int)(screenY + 4) < DISPLAY_HEIGHT + 8) {
                         gte_stsz3(&scratch->screenZ[0], &scratch->screenZ[1], &scratch->screenZ[2]);
                         screenZ = scratch->screenZ[wrapIndex];
                         sizeIndex = 31 - (screenZ >> 10);
