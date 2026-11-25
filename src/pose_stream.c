@@ -3,6 +3,8 @@
  * a four-slot cache of decoded frames and their bit-reader state. */
 
 #include "pose_stream.h"
+#include "pose_angles.h"
+#include "substep.h"
 
 int gPoseReuseModes = 0; /* set while DecodePoseFramePair decodes its second frame */
 
@@ -75,6 +77,21 @@ void InitPoseStream(unsigned long *stream)
     }
     gPoseCacheSerial = 0;
 }
+
+#ifdef TARGET_PC
+void PcBlendPose(PoseAngles *pose, const PoseAngles *last, int count)
+{
+    int i;
+    pose[0].x = (short)PC_BLEND(last[0].x, pose[0].x);
+    pose[0].y = (short)PC_BLEND_ANGLE(last[0].y, pose[0].y);
+    pose[0].z = (short)PC_BLEND(last[0].z, pose[0].z);
+    for (i = 1; i < count; i++) {
+        pose[i].x = (short)PC_BLEND_ANGLE(last[i].x, pose[i].x);
+        pose[i].y = (short)PC_BLEND_ANGLE(last[i].y, pose[i].y);
+        pose[i].z = (short)PC_BLEND_ANGLE(last[i].z, pose[i].z);
+    }
+}
+#endif
 
 void DecodePoseFrame(int frame, void *output, PoseWork *work)
 {

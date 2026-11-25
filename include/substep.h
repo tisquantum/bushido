@@ -16,6 +16,8 @@
 #define PC_TICKS(frames) (frames)
 #define PC_FRAME_INC(x) (++(x))
 #define PC_ON_LAST(perFrame) (perFrame)
+#define PC_BLEND(last, now) (now)
+#define PC_BLEND_ANGLE(last, now) (now)
 #endif
 
 #endif

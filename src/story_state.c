@@ -235,7 +235,8 @@ void UpdateStoryCutsceneState(void)
         gStoryCutsceneVoiceIndex++;
     }
 
-    UpdateAmbientSounds();
+    if (PC_LAST_SUBTICK)
+        UpdateAmbientSounds();
     FlushQueuedSounds();
     if (gPadState.pressed & MENU_CANCEL)
         finished = 1;
@@ -923,7 +924,8 @@ void UpdateStoryPrologueState(void)
     int status;
 
     gDisplayPresentEnabled = 1;
-    gStateFrameTimer++;
+    if (PC_LAST_SUBTICK)
+        gStateFrameTimer++;
     status = UpdateStorySlideshow();
     switch (status) {
     case PROLOGUE_STATUS_FINISHED:

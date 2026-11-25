@@ -75,5 +75,9 @@ int UpdateOpeningBannerPackets(char **cursor);
 void ClearSlashOverlaySlots(void);
 int AllocSlashOverlaySlot(const SlashOverlayPayload *source);
 int UpdateSlashOverlays(PacketBuilder *build);
+#ifdef TARGET_PC
+/* The overlays' state kept (1) before a tick that only draws them, and put back (0) after it. */
+void PcKeepOpeningOverlays(int keep);
+#endif
 
 #endif
