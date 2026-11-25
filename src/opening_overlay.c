@@ -12,6 +12,9 @@
 #include "scene_math.h"
 #include "camera.h"
 #include "rot_matrix.h"
+#ifdef TARGET_PC
+#include <string.h>
+#endif
 
 #define OPENING_SCREEN_WIDTH  640
 #define OPENING_SCREEN_HEIGHT 240
@@ -270,6 +273,24 @@ int UpdateOpeningBannerPackets(char **cursor)
 }
 
 SlashOverlaySlot gSlashOverlaySlots[SLASH_OVERLAY_SLOT_COUNT];
+
+#ifdef TARGET_PC
+void PcKeepOpeningOverlays(int keep)
+{
+    static OpeningOverlayState overlay;
+    static OpeningBannerState banner;
+    static SlashOverlaySlot slots[SLASH_OVERLAY_SLOT_COUNT];
+    if (keep) {
+        overlay = gOpeningOverlayState;
+        banner = gOpeningBannerState;
+        memcpy(slots, gSlashOverlaySlots, sizeof(slots));
+    } else {
+        gOpeningOverlayState = overlay;
+        gOpeningBannerState = banner;
+        memcpy(gSlashOverlaySlots, slots, sizeof(slots));
+    }
+}
+#endif
 
 void ClearSlashOverlaySlots(void)
 {

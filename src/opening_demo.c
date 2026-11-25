@@ -44,6 +44,10 @@
 #include "globals.h"
 #include "render.h"
 #include "rot_matrix.h"
+#include "substep.h"
+#ifdef TARGET_PC
+#include <string.h>
+#endif
 
 #define CD_FILE_OPENING_DEMO           0x52 /* DATA3\O01.dat */
 #define OPENING_DEMO_VARIANT_FRAMES    900
@@ -252,8 +256,15 @@ int UpdateOpeningDemo(void)
     gPacketCursor = GetGpuPacketBuffer(gFrameCounter & 1);
     gRenderQueueCursor = gRenderQueue;
     running = 1;
+#ifdef TARGET_PC
+    /* The script runs once a frame, on its first tick; the frame's other ticks draw what it set going. */
+    nextCommand = PC_FIRST_SUBTICK ? StepOpeningDemoScript(gOpeningDemoScriptCursor, gOpeningDemoScriptFrame)
+                                   : gOpeningDemoScriptCursor;
+    if (PC_FIRST_SUBTICK && nextCommand == gOpeningDemoScriptStart) {
+#else
     nextCommand = StepOpeningDemoScript(gOpeningDemoScriptCursor, gOpeningDemoScriptFrame);
     if (nextCommand == gOpeningDemoScriptStart) {
+#endif
         running = 0;
     } else {
         if (nextCommand != gOpeningDemoScriptCursor) {
@@ -270,7 +281,8 @@ int UpdateOpeningDemo(void)
             UpdateOpeningDemoCameraScene();
         }
         UpdateAndDrawOpeningOverlays();
-        gOpeningDemoScriptFrame++;
+        if (PC_LAST_SUBTICK)
+            gOpeningDemoScriptFrame++;
         SubmitSceneDisplayList();
     }
     return running;
@@ -434,7 +446,7 @@ void UpdateOpeningDemoFighterScene(void)
     short *cameraKey;
     int column, row;
 
-    cameraKey = DecodeCameraTrackFrame(OPENING_CAMERA_CHANNEL_FIGHTER);
+    cameraKey = CAMERA_TRACK_FRAME(OPENING_CAMERA_CHANNEL_FIGHTER);
     gCameraNode.localMatrix.t[0] = -cameraKey[0];
     gCameraNode.localMatrix.t[1] = cameraKey[1];
     gCameraNode.localMatrix.t[2] = -cameraKey[2];
@@ -490,7 +502,7 @@ void UpdateOpeningDemoFighterScene(void)
     CullStageAndQueueFog(ComputeVectorLength3D(gCameraNode.localMatrix.t[0],
                               gCameraNode.localMatrix.t[1],
                               gCameraNode.localMatrix.t[2]));
-    if (++gOpeningDemoPoseFrame >= OPENING_DEMO_VARIANT_FRAMES) {
+    if (PC_LAST_SUBTICK && ++gOpeningDemoPoseFrame >= OPENING_DEMO_VARIANT_FRAMES) {
         gOpeningDemoPoseFrame = 0;
         InitCameraTrackReader(gOpeningDemoFighterCameraTrack, OPENING_CAMERA_CHANNEL_FIGHTER);
         InitCameraTrackReader(gOpeningDemoStageCameraTrack, OPENING_CAMERA_CHANNEL_STAGE);
@@ -501,7 +513,7 @@ void UpdateOpeningDemoCameraScene(void)
 {
     short *cameraKey;
 
-    cameraKey = DecodeCameraTrackFrame(OPENING_CAMERA_CHANNEL_STAGE);
+    cameraKey = CAMERA_TRACK_FRAME(OPENING_CAMERA_CHANNEL_STAGE);
     gCameraNode.localMatrix.t[0] = -cameraKey[0];
     gCameraNode.localMatrix.t[1] = cameraKey[1];
     gCameraNode.localMatrix.t[2] = -cameraKey[2];
@@ -532,6 +544,14 @@ void ApplyOpeningDemoPose(struct SceneNode *parts)
     int i;
 
     DecodePoseFrame(gOpeningDemoPoseFrame + gOpeningDemoPoseBaseFrame, pose, POSE_DECODE_WORK);
+#ifdef TARGET_PC
+    if (!PC_LAST_SUBTICK && gOpeningDemoPoseFrame > 0) {
+        /* A tick before the frame's last: the pose on its way from the last frame's (pc_substep.h). */
+        PoseAngles last[FIGHTER_JOINT_COUNT];
+        DecodePoseFrame(gOpeningDemoPoseFrame - 1 + gOpeningDemoPoseBaseFrame, last, POSE_DECODE_WORK);
+        PcBlendPose(pose, last, FIGHTER_JOINT_COUNT);
+    }
+#endif
     decodedPose = pose;
     parts[0].rotation.vx = 0;
     parts[0].rotation.vy = 0;
@@ -637,6 +657,14 @@ void UpdateAndDrawOpeningOverlays(void)
     PacketBuilder build;
     char *cursor;
     int count;
+#ifdef TARGET_PC
+    /* The banners and slashes move once a frame: the frame's ticks before the last draw them as they are and
+     * put their state back. */
+    int keep = !PC_LAST_SUBTICK;
+    if (keep) {
+        PcKeepOpeningOverlays(1);
+    }
+#endif
 
     build.cursor = gPacketCursor;
     count = UpdateSlashOverlays(&build);
@@ -647,6 +675,11 @@ void UpdateAndDrawOpeningOverlays(void)
     count = UpdateOpeningBannerPackets(&cursor);
     gPacketCursor = cursor;
     SubmitOpeningOverlayPrims(count);
+#ifdef TARGET_PC
+    if (keep) {
+        PcKeepOpeningOverlays(0);
+    }
+#endif
 }
 
 #define OPENING_OT_BACK_BUCKET (OTZ_BUCKET_COUNT - 1)

@@ -6,6 +6,7 @@
 #include "display_buffer.h"
 #include "main.h"
 #include "screen_fade.h"
+#include "substep.h"
 
 ScreenFadePreset gScreenFadePresets[SCREEN_FADE_PRESET_COUNT] = {
     {   0,   0,   0, 255, 255, 255,  216, SCREEN_FADE_ABR_ADD, 0 },
@@ -71,7 +72,8 @@ int UpdateAndDrawScreenFade(void)
     done = 0;
     if (gScreenFadeInitFrames != 0) {
         BuildScreenFadePrim();
-        gScreenFadeInitFrames--;
+        if (PC_LAST_SUBTICK)
+            gScreenFadeInitFrames--;
     }
     poly = &gScreenFadeQuads[gFrameCounter & 1];
     poly->r0 = ((ACTIVE_SCREEN_FADE->endR - ACTIVE_SCREEN_FADE->startR) * ACTIVE_SCREEN_FADE->progress) / ONE +
@@ -82,7 +84,7 @@ int UpdateAndDrawScreenFade(void)
         ACTIVE_SCREEN_FADE->startB;
     AddPrim(gCurrentOt, &gScreenFadeQuads[gFrameCounter & 1]);
     AddPrim(gCurrentOt, &gScreenFadeModes[gFrameCounter & 1]);
-    ACTIVE_SCREEN_FADE->progress += ACTIVE_SCREEN_FADE->step;
+    ACTIVE_SCREEN_FADE->progress += PC_SHARE(ACTIVE_SCREEN_FADE->step);
     if (ACTIVE_SCREEN_FADE->progress > ONE) {
         ACTIVE_SCREEN_FADE->progress = ONE;
         done = 1;

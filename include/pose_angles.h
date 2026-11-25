@@ -7,6 +7,13 @@ typedef struct PoseAngles {
     short x, y, z;
 } PoseAngles;
 
+#ifdef TARGET_PC
+/* A recorded pose a tick before its frame's last (pc_substep.h): `pose`, this frame's, blended from `last`,
+ * the frame before's. Entry 0 is the root (height and distance blended straight, heading as an angle), the
+ * rest joint angles. */
+void PcBlendPose(PoseAngles *pose, const PoseAngles *last, int count);
+#endif
+
 /* One decoded 18-joint pose (DecodePoseFramePair's output; Fighter.savedPose). */
 typedef struct FighterPose {
     PoseAngles joint[18];

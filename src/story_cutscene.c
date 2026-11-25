@@ -37,6 +37,10 @@
 #include "globals.h"
 #include "render.h"
 #include "rot_matrix.h"
+#include "substep.h"
+#ifdef TARGET_PC
+#include <string.h>
+#endif
 
 #ifdef VERSION_JP
 #define CD_FILE_CUTSCENE_BASE          127 /* DATA7\V00..V08.DAT */
@@ -306,8 +310,9 @@ int UpdateStoryCutscene(void)
 
     gPacketCursor = GetGpuPacketBuffer(gFrameCounter & 1);
     gRenderQueueCursor = gRenderQueue;
-    gSceneFrameCounter++;
-    cameraKey = DecodeCameraTrackFrame(CUTSCENE_CAMERA_CHANNEL);
+    if (PC_LAST_SUBTICK)
+        gSceneFrameCounter++;
+    cameraKey = CAMERA_TRACK_FRAME(CUTSCENE_CAMERA_CHANNEL);
     gCameraNode.localMatrix.t[0] = gCutsceneAnchorPos.vx - cameraKey[0];
     gCameraNode.localMatrix.t[1] = cameraKey[1] + gCutsceneAnchorPos.vy;
     gCameraNode.localMatrix.t[2] = gCutsceneAnchorPos.vz - cameraKey[2];
@@ -340,9 +345,22 @@ int UpdateStoryCutscene(void)
     if (nextFrame < frameLimit) {
         frameLimit = nextFrame;
     }
-    gCutsceneFrame = frameLimit;
     DisableStageTileNearClip();
     SubmitSceneDisplayList();
+#ifdef TARGET_PC
+    /* The frame's ticks before the last draw it; the last moves the scene on (faces, voices, the end). */
+    if (!PC_LAST_SUBTICK) {
+        SetFighterFacialExpression(0, GetFighterCharacterId(0), gCutsceneP1FaceBits & CUTSCENE_FACE_EXPR_MASK);
+        if (gCutsceneP2FaceStream != 0) {
+            SetFighterFacialExpression(1, GetFighterCharacterId(1), gCutsceneP2FaceBits & CUTSCENE_FACE_EXPR_MASK);
+        }
+#ifndef VERSION_JP
+        UpdateAndDrawSubtitle(0);
+#endif
+        return 0;
+    }
+#endif
+    gCutsceneFrame = frameLimit;
     if (gCutsceneFaceTicksLeft == 0) {
         gCutsceneP1FaceBits = *gCutsceneP1FaceStream++;
         if (gCutsceneP2FaceStream != 0) {
@@ -391,6 +409,17 @@ void ApplyCutsceneFighterPose(int side, SceneNode *base)
 
     /* Entry 0 stores root polar position (height, yaw, radius); entries 1..17 store joint Euler angles. */
     frame = gCutscenePoseData[gCutsceneFrame + baseFrame].joint;
+#ifdef TARGET_PC
+    {
+        /* A tick before the frame's last: the pose on its way from the last frame's (pc_substep.h). */
+        static PoseAngles blended[FIGHTER_JOINT_COUNT];
+        if (!PC_LAST_SUBTICK && gCutsceneFrame > 0) {
+            memcpy(blended, frame, sizeof(blended));
+            PcBlendPose(blended, gCutscenePoseData[gCutsceneFrame - 1 + baseFrame].joint, FIGHTER_JOINT_COUNT);
+            frame = blended;
+        }
+    }
+#endif
     yaw = frame->y;
     radius = frame->z;
     base[1].rotation.vx = 0;

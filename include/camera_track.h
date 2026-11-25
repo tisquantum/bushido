@@ -20,4 +20,13 @@ typedef struct SceneCameraTrack {
 void InitCameraTrackReader(void *streamData, int channel);
 short *DecodeCameraTrackFrame(int channel);
 
+/* A scene's camera this tick: on the PC, the frame's key decoded on its first tick and blended to from the last
+ * frame's over the frame's ticks (pc_substep.h); on the console, the frame's key. */
+#ifdef TARGET_PC
+short *PcCameraTrackFrame(int channel);
+#define CAMERA_TRACK_FRAME(channel) PcCameraTrackFrame(channel)
+#else
+#define CAMERA_TRACK_FRAME(channel) DecodeCameraTrackFrame(channel)
+#endif
+
 #endif

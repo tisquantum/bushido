@@ -19,6 +19,7 @@
 #include "main.h"
 #include "stage_light.h"
 #include "globals.h"
+#include "substep.h"
 
 static int UpdateStoryPrologue(void);
 static void RecordPrologueBufferHighWater(void *bufferEnd);
@@ -225,6 +226,11 @@ static POLY_FT4 *gWipePacketsOdd;
 static POLY_FT4 *gWipePacketsEven;
 static int gPrologueCardBrightness;
 
+#ifdef TARGET_PC
+/* A frame that changed the prologue's state (on its first tick) doesn't also count a frame on its last. */
+static int sPcPrologueStateChanged;
+#endif
+
 static int UpdateStoryPrologue(void)
 {
     int duration;
@@ -243,6 +249,15 @@ static int UpdateStoryPrologue(void)
     }
     gPrologueSkipRequested = 0;
     status = PROLOGUE_STATUS_RUNNING;
+#ifdef TARGET_PC
+    /* The state moves on on a frame's first tick and its frames count on the last: the ticks between draw. */
+    if (PC_FIRST_SUBTICK) {
+        sPcPrologueStateChanged = 0;
+    }
+    if (!PC_FIRST_SUBTICK && gPrologueStateFrame == duration) {
+        /* waiting for the next frame to move on */
+    } else
+#endif
     if (gPrologueStateFrame == duration) {
         switch (gPrologueState) {
         case PROLOGUE_STATE_CUE_AUDIO:
@@ -329,7 +344,14 @@ static int UpdateStoryPrologue(void)
         }
         gPrologueStateFrame = 0;
         gPrologueState++;
-    } else {
+#ifdef TARGET_PC
+        sPcPrologueStateChanged = 1;
+#endif
+    } else if (PC_LAST_SUBTICK
+#ifdef TARGET_PC
+               && !sPcPrologueStateChanged
+#endif
+    ) {
         gPrologueStateFrame++;
     }
     switch (gPrologueState) {
@@ -345,7 +367,7 @@ static int UpdateStoryPrologue(void)
         gPrologueCard0Sprites[0].texture.r = gPrologueCard0Sprites[0].texture.g =
             gPrologueCard0Sprites[0].texture.b = gPrologueCard0Sprites[1].texture.r =
                 gPrologueCard0Sprites[1].texture.g = gPrologueCard0Sprites[1].texture.b = gPrologueCardBrightness;
-        gPrologueCardBrightness = CLAMP_MAX(gPrologueCardBrightness + PROLOGUE_CARD_BRIGHTNESS_STEP,
+        gPrologueCardBrightness = CLAMP_MAX(gPrologueCardBrightness + PC_SHARE(PROLOGUE_CARD_BRIGHTNESS_STEP),
                                             PROLOGUE_CARD_BRIGHTNESS_MAX);
         DrawTexturedRectList(gPrologueCard0Sprites, 0, 0, 0);
         SubmitTiledPolyFt4Grid(&gCurrentOt[PROLOGUE_BG_OT_INDEX], gProloguePackets);
@@ -356,7 +378,7 @@ static int UpdateStoryPrologue(void)
                 gPrologueCard1Sprites[1].texture.g = gPrologueCard1Sprites[1].texture.b =
                     gPrologueCard1Sprites[2].texture.r = gPrologueCard1Sprites[2].texture.g =
                         gPrologueCard1Sprites[2].texture.b = gPrologueCardBrightness;
-        gPrologueCardBrightness = CLAMP_MAX(gPrologueCardBrightness + PROLOGUE_CARD_BRIGHTNESS_STEP,
+        gPrologueCardBrightness = CLAMP_MAX(gPrologueCardBrightness + PC_SHARE(PROLOGUE_CARD_BRIGHTNESS_STEP),
                                             PROLOGUE_CARD_BRIGHTNESS_MAX);
         DrawTexturedRectList(gPrologueCard1Sprites, 0, 0, 0);
         DrawTexturedRectList(gPrologueCard0Sprites, 0, 0, 0);
@@ -368,7 +390,7 @@ static int UpdateStoryPrologue(void)
                 gPrologueCard2Sprites[1].texture.g = gPrologueCard2Sprites[1].texture.b =
                     gPrologueCard2Sprites[2].texture.r = gPrologueCard2Sprites[2].texture.g =
                         gPrologueCard2Sprites[2].texture.b = gPrologueCardBrightness;
-        gPrologueCardBrightness = CLAMP_MAX(gPrologueCardBrightness + PROLOGUE_CARD_BRIGHTNESS_STEP,
+        gPrologueCardBrightness = CLAMP_MAX(gPrologueCardBrightness + PC_SHARE(PROLOGUE_CARD_BRIGHTNESS_STEP),
                                             PROLOGUE_CARD_BRIGHTNESS_MAX);
         DrawTexturedRectList(gPrologueCard2Sprites, 0, 0, 0);
         DrawTexturedRectList(gPrologueCard1Sprites, 0, 0, 0);
@@ -393,7 +415,8 @@ static int UpdateStoryPrologue(void)
                               DISPLAY_WIDTH, 496, 0, DISPLAY_HEIGHT - gPrologueWipeOffset);
         SubmitTiledPolyFt4Grid(&gCurrentOt[PROLOGUE_BG_OT_INDEX], packets);
         SubmitTiledPolyFt4Grid(&gCurrentOt[PROLOGUE_BG_OT_INDEX], nextPacket);
-        gPrologueWipeOffset = CLAMP_MAX(gPrologueWipeOffset + 1, DISPLAY_HEIGHT);
+        if (PC_LAST_SUBTICK)
+            gPrologueWipeOffset = CLAMP_MAX(gPrologueWipeOffset + 1, DISPLAY_HEIGHT);
         break;
     case PROLOGUE_STATE_FLASH_TO_CHAR:
         packets = ((gFrameCounter & 1) != 0) ? gWipePacketsOdd : gWipePacketsEven;
