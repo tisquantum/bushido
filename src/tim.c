@@ -5,6 +5,9 @@
 #include <libgpu.h>
 #include "globals.h"
 #include "tim.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 /* A TIM image: its id word, its flags (pixel mode, and whether a CLUT block follows), then the
  * CLUT block and the pixel block, each led by its length, position and size. */
@@ -407,6 +410,15 @@ void TintVramClut(int mode, int sourceX, int sourceY, int count, int rScale, int
                 g <<= 11;
                 b *= 696;
                 r = (r + g + b) >> 15;
+#ifdef TARGET_PC
+                if (PC_FIX_BUGS) {
+                    /* Fixed: each channel scales the luminance. */
+                    g = (r * gScale) >> 12;
+                    b = (r * bScale) >> 12;
+                    r = (r * rScale) >> 12;
+                    break;
+                }
+#endif
                 r = (r * rScale) >> 12;
                 g = (r * gScale) >> 12; /* g and b scale the tinted r, not the luminance */
                 b = (r * bScale) >> 12;

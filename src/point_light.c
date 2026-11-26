@@ -10,6 +10,9 @@
 #include "point_light.h"
 #include "render.h"
 #include "tim.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 static WorldVector gPointLightOrigin; /* where the flash is, for the targets' light directions */
 /* 444 bytes; nothing reads or writes them. */
 static unsigned char gPointLightUnusedBss[444];
@@ -146,6 +149,12 @@ static void UpdatePointLight(WorldVector *firstTarget, WorldVector *secondTarget
                     ComputeVectorLengthSq3D(dx, dy, dz) > POINT_LIGHT_MAX_RANGE_SQ) {
                     goto disable;
                 }
+#ifdef TARGET_PC
+                /* Fixed: an offset too large to measure is far beyond the range too. */
+                if (PC_FIX_BUGS && !(DELTA_IN_RANGE(dx) && DELTA_IN_RANGE(dy) && DELTA_IN_RANGE(dz))) {
+                    goto disable;
+                }
+#endif
                 yaw = ratan2(dx, dz);
                 cosine = rcos(yaw);
                 sine = rsin(yaw);

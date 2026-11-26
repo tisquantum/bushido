@@ -17,6 +17,10 @@
 #include "geometry.h"
 #include "stage_moat.h"
 #include "globals.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#include "replay.h"
+#endif
 
 /* CollisionWork.workPoints[2][4] viewed as [side][this frame, previous frame][the two weapon points swept]. */
 typedef struct WeaponSweepGrid {
@@ -136,6 +140,12 @@ int CheckWeaponStagePropHit(int side)
                 marker->cut = 1;
                 TriggerCuttablePropFall(j, GetTriangleNormalHeading((VECTOR *)a, (VECTOR *)b, (VECTOR *)c));
                 DispatchCombatEventEffect(side, COMBAT_EVENT_PROP_CUT, (VECTOR *)a);
+#ifdef TARGET_PC
+                if (PC_FIX_BUGS) {
+                    /* Fixed: recorded, as every other event is, so the instant replay has its sound. */
+                    RecordReplayCombatEvent(side, COMBAT_EVENT_PROP_CUT, (VECTOR *)a);
+                }
+#endif
                 TriggerFighterRumble(&gFighters[side], RUMBLE_PROP_CUT);
                 return 0;
             }

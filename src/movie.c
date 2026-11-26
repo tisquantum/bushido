@@ -210,6 +210,10 @@ void BuildMovieTileQuads(void)
     int bottomTop, bottomEnd;
     int frameRectIndex; /* never set: the tiles' texture pages come from frameRects at whatever index it holds */
 
+#ifdef TARGET_PC
+    /* The console's is a register the BIOS left; frameRects[0] and [1] are the same, so 0 shows the same. */
+    frameRectIndex = 0;
+#endif
     tile = (dec->tiles = gMovieTileQuads);
     for (v = 0; v < 224; v += 32) {
         int bottom;

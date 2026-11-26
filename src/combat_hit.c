@@ -27,6 +27,9 @@
 #include "main.h"
 #include "scene_math.h"
 #include "globals.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 #define ANGLE_THREE_EIGHTHS       1536
 
@@ -162,7 +165,12 @@ void ApplyFighterHitImpact(int mode, Fighter *fighter, int sphere, int impactAng
         EmitCombatEvent(slot, COMBAT_EVENT_FATAL_HIT, (VECTOR *)&COLLISION_SCRATCH->bodyPartPos[slot][sphere]);
         TriggerFighterRumble(fighter, RUMBLE_FATAL_HIT);
         fighter->faceExpression = FIGHTER_FACE_LETHAL;
+#ifdef TARGET_PC
+        /* Fixed: the struck fighter's. */
+        gFighterInjuredRegions[PC_FIX_BUGS ? slot : 0] |= INJURY_OVERLAY_ALL;
+#else
         gFighterInjuredRegions[0] |= INJURY_OVERLAY_ALL; /* player one's, whichever fighter was struck */
+#endif
         return;
     }
 

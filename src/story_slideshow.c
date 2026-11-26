@@ -498,6 +498,11 @@ static POLY_FT4 *BuildTiledPolyFt4Grid(POLY_FT4 *packets, int texX, int texY, in
     }
     vramY = texY;
     dstY = screenY;
+#ifdef TARGET_PC
+    /* Unset on the console too (its first row's height comes from a register the caller left); here, the
+     * row in its texture page that the first row starts on, so rows end at the page's 64-line marks. */
+    pageY = texY & 0xFF;
+#endif
     for (remainingRows = height; remainingRows > 0; remainingRows -= tileHeight) {
         remainingCols = width;
         /* pageY is not yet set on the first row, so that row's height depends on whatever it holds */

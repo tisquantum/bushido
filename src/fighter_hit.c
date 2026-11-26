@@ -14,6 +14,9 @@
 #include "fighter_hit.h"
 #include "main.h"
 #include "globals.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 void ScaleFighterHitSpheres(int side, int statureScale)
 {
@@ -35,6 +38,13 @@ void ScaleFighterHitSpheres(int side, int statureScale)
         scaledSphere->vitalRadius = (baseSphere->vitalRadius * statureScale) >> 12;
         scaledSphere->vitalRadiusSq =
             (baseSphere->vitalRadiusSq * statureScale) >> 12; /* scaled by the stature, not its square */
+#ifdef TARGET_PC
+        if (PC_FIX_BUGS) {
+            /* Fixed: by the stature's square, as a square scales. */
+            scaledSphere->outerRadiusSq = (((baseSphere->outerRadiusSq * statureScale) >> 12) * statureScale) >> 12;
+            scaledSphere->vitalRadiusSq = (((baseSphere->vitalRadiusSq * statureScale) >> 12) * statureScale) >> 12;
+        }
+#endif
     }
 }
 

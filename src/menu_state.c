@@ -41,6 +41,9 @@
 #include "weapon_id.h"
 #include "globals.h"
 #include "pad.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 #ifdef VERSION_JP
 #define BOTH_PADS_OPTIONS_EXIT BOTH_PADS_CANCEL
@@ -413,6 +416,11 @@ void UpdateCharacterSelect(void)
         } else if (gPlayMode == PLAY_MODE_VS) {
             int stage;
 
+#ifdef TARGET_PC
+            if (PC_EXTRAS && GetSelectedStageIndex() == 8) {
+                stage = 18; /* the extras' ninth row (select_ui.c) */
+            } else
+#endif
             if (gPovModeEnabled == 1) {
                 stage = gPovStageSelectTable[GetSelectedStageIndex()];
             } else {

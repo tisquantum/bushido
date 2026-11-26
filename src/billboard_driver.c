@@ -73,7 +73,13 @@ void UpdateAndDrawBillboardEffects(void)
 
 void InitBillboardEffects(void)
 {
+#ifdef TARGET_PC
+    /* Skipped kinds keep what the stack held, and their UVs go into the saved state: zeroed, so every build
+     * and machine agrees (nothing draws those kinds). */
+    EffectTextureEntry textures[BILLBOARD_EFFECT_KIND_COUNT] = {0};
+#else
     EffectTextureEntry textures[BILLBOARD_EFFECT_KIND_COUNT];
+#endif
     EffectTextureEntry *entry;
     short *src;
     short x, y;

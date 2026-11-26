@@ -5,6 +5,9 @@
 #include "model_arena.h"
 #include "stage_tables.h"
 #include "stage_id.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 /* { stageA, stageB, width, depth, { sourceAnchor, destAnchor } } */
 StageTransition gStageTransitions[STAGE_TRANSITION_TABLE_COUNT] = {
@@ -231,5 +234,16 @@ WorldVector gStageSpawnPositions[STAGE_COUNT][STAGE_SPAWN_PAIR_COUNT][2] = {
 
 WorldVector *GetStageSpawnTable(void)
 {
+#ifdef TARGET_PC
+    if (PC_EXTRAS) {
+        /* Stage 18's are all zero on the disc (no mode reaches it): the two at either side of its middle, as
+         * Yagura Point's first pair, each pair one way round or the other. */
+        int pair;
+        for (pair = 0; pair < STAGE_SPAWN_PAIR_COUNT; pair++) {
+            gStageSpawnPositions[18][pair][pair & 1].x = -2000;
+            gStageSpawnPositions[18][pair][!(pair & 1)].x = 2000;
+        }
+    }
+#endif
     return gStageSpawnPositions[0][0];
 }

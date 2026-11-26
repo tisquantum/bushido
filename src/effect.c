@@ -26,6 +26,9 @@
 #include "render.h"
 #include "scene.h"
 #include "tim.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 static EffectSlot gEffectPool[EFFECT_POOL_SIZE];
 
@@ -1388,6 +1391,15 @@ void SpawnBloodSpray(VECTOR *position, VECTOR *direction)
             gBloodParticleColor.b = 0x74;
         } else {
             gBloodParticleColor = gDefaultBloodColor.color;
+#ifdef TARGET_PC
+            if (PC_JP_BLOOD) {
+                /* The Japanese release's: semi-transparent amber. */
+                gBloodParticleColor.r = 0xa0;
+                gBloodParticleColor.g = 0x80;
+                gBloodParticleColor.b = 0x00;
+                gBloodParticleColor.cd = GPU_CODE_POLY_FT4 | GPU_CODE_SEMITRANS;
+            }
+#endif
         }
     }
 }

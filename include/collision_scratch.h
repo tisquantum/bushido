@@ -11,7 +11,13 @@
 #define WEAPON_CONTROL_POINT_COUNT 4
 /* Spheres the hit tests skip while the left arm is crippled: 8, 9 (left forearm) and 10, 11 (right upper arm);
  * the left arm is spheres 6..9. */
+#ifdef TARGET_PC
+#include "pc_rules.h"
+/* Fixed: the left arm's own four. */
+#define CRIPPLED_LEFT_ARM_SKIP_FIRST (PC_FIX_BUGS ? FIGHTER_SPHERE_LEFT_UPPER_ARM_UPPER : 8)
+#else
 #define CRIPPLED_LEFT_ARM_SKIP_FIRST 8
+#endif
 #define CRIPPLED_LEFT_ARM_SKIP_COUNT 4
 
 /* Blade-lock (tsubazeriai) struggle state in gBladeLockState. */

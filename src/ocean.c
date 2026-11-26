@@ -12,6 +12,9 @@
 #include "model_arena.h"
 #include "scene_math.h"
 #include "render.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 #define OCEAN_BAND_COUNT    9
 #define OCEAN_QUAD_BANDS    8
@@ -208,6 +211,12 @@ int SampleOceanWaveEdgeX(int worldZ)
     gOceanSampleIndex = index;
     weight = (worldZ % OCEAN_CELL_STEP) & 1; /* 0 or 1 out of 4096:
                                                 both samplers return about the next column's value */
+#ifdef TARGET_PC
+    if (PC_FIX_BUGS) {
+        /* Fixed: the column's share by how far the point is into it (Q12), so the edge moves between columns. */
+        weight = ONE - (int)(((unsigned int)(worldZ + 32000) % OCEAN_CELL_STEP) * ONE / OCEAN_CELL_STEP);
+    }
+#endif
     gOceanSampleWeight = weight;
 
     return index < OCEAN_QUAD_COLS

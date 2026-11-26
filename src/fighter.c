@@ -53,6 +53,9 @@ static unsigned char sPcFallHeld[2];
 #include "weapon_trail.h"
 #include "globals.h"
 #include "match_setup.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 #define MOTION_SCRATCH ((FighterMotionScratch *)&COLLISION_SCRATCH->work)
 
@@ -218,9 +221,16 @@ SVECTOR gSaberEdgeOffsets[2] = {
     { -17, 98, 100, 0 }, { -17, 48, 755, 0 },
 };
 /* Three points where gWeaponEdgePointCounts gives the naginata four: the fourth is read from gRapierEdgeOffsets[0]. */
+#ifdef TARGET_PC
+/* The fourth written out: the port's link need not put gRapierEdgeOffsets next. */
+SVECTOR gNaginataEdgeOffsets[4] = {
+    { -20, 65, 737, 0 }, { -21, -1, 1319, 0 }, { -21, 66, -1201, 0 }, { -18, 74, 123, 0 },
+};
+#else
 SVECTOR gNaginataEdgeOffsets[3] = {
     { -20, 65, 737, 0 }, { -21, -1, 1319, 0 }, { -21, 66, -1201, 0 },
 };
+#endif
 SVECTOR gRapierEdgeOffsets[2] = {
     { -18, 74, 123, 0 }, { -18, 74, 848, 0 },
 };
@@ -511,6 +521,12 @@ void InitFighterForScene(int stageId, int prevStageId, int side, int isCpu,
         if (gPlayMode == PLAY_MODE_SLASH && fighter->isCpu != 0) {
             fighter->baseAnimSpeed = (short)CalcSlashAiAnimSpeed();
             fighter->clashPower = (short)CalcSlashAiClashPower();
+#ifdef TARGET_PC
+            if (PC_FIX_BUGS) {
+                /* Fixed: into the base, as the speed, so that it lasts past the first frame. */
+                fighter->baseClashPower = fighter->clashPower;
+            }
+#endif
         }
         if (gPlayMode == PLAY_MODE_VS && gPovModeEnabled == 1 &&
             fighter->isCpu != 0) {
@@ -518,6 +534,12 @@ void InitFighterForScene(int stageId, int prevStageId, int side, int isCpu,
             fighter->baseAnimSpeed = (short)(fighter->baseAnimSpeed * speedScale / 4096);
             clashScale = CalcPovAiClashPowerScale();
             fighter->clashPower = (short)(fighter->clashPower * clashScale / 4096);
+#ifdef TARGET_PC
+            if (PC_FIX_BUGS) {
+                /* Fixed: the base scaled, and kept, as the speed is. */
+                fighter->baseClashPower = (short)(fighter->baseClashPower * clashScale / 4096);
+            }
+#endif
         }
         fighter->tractionWeight = gCharTractionWeights[fighter->characterClass]
                                 + gWeaponTractionWeights[fighter->weaponId];

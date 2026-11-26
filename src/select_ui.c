@@ -16,6 +16,9 @@
 #include "render.h"
 #include "rot_matrix.h"
 #include "font_hud.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 static int gCursorGlowPhase;
 static int gCharConfirmBlink[2];
@@ -582,6 +585,34 @@ short *gStageSelectLayouts[8] = {
     &gStageSelectLayoutPractice[10], gStageSelectLayoutVs,
 };
 
+#ifdef TARGET_PC
+/* The extras' VS layout: the eight rows drawn closer, and a ninth for Stage 18 (no name plate on the disc: its
+ * name is text). */
+#define STAGE_SELECT_TEXT_ROW (-2)
+static short sStageSelectLayoutVsExtras[] = {
+    9,
+    0, 64, 50,
+    1, 64, 82,
+    2, 64, 114,
+    3, 64, 146,
+    4, 328, 50,
+    5, 328, 82,
+    6, 328, 114,
+    7, 328, 146,
+    STAGE_SELECT_TEXT_ROW, 196, 182,
+};
+
+/* The layout a select mode draws and steps through: VS's gets Stage 18 with the extras on. */
+static short *StageSelectLayout(int selectMode)
+{
+    short *layout = gStageSelectLayouts[selectMode];
+    return PC_EXTRAS && layout == gStageSelectLayoutVs ? sStageSelectLayoutVsExtras : layout;
+}
+#define STAGE_SELECT_LAYOUT(mode) StageSelectLayout(mode)
+#else
+#define STAGE_SELECT_LAYOUT(mode) gStageSelectLayouts[mode]
+#endif
+
 /* The fighter's name under the cursor, as DrawFormattedText takes it; the Japanese build draws none. */
 char *gCharacterNameLabels[SELECT_CHAR_SLOT_COUNT] = {
     "#X#Y#FRED SHADOW", "#X#Y#FTATSUMI", "#X#Y#FMIKADO",
@@ -751,7 +782,7 @@ int UpdateAndDrawSelectScreenUi(int mode, int leftArg, int rightArg)
         } else {
             cursorState = 0;
         }
-        layoutCursor = gStageSelectLayouts[selectMode];
+        layoutCursor = STAGE_SELECT_LAYOUT(selectMode);
         rowCount = *layoutCursor++;
 #ifdef VERSION_JP
         if (stageIndex < 0) {
@@ -769,6 +800,16 @@ int UpdateAndDrawSelectScreenUi(int mode, int leftArg, int rightArg)
 #else
             rowX = *layoutCursor++;
             rowY = *layoutCursor++;
+#endif
+#ifdef TARGET_PC
+            if (stageNameIndex == STAGE_SELECT_TEXT_ROW) {
+                gStageSelectRowPlateSprite[0].texture.r = gStageSelectRowPlateSprite[0].texture.g =
+                    gStageSelectRowPlateSprite[0].texture.b =
+                        stageIndex == row && cursorState != 0 ? STAGE_ROW_BRIGHTNESS_ACTIVE : STAGE_ROW_BRIGHTNESS_DIM;
+                DrawFormattedText("#X#Y#FHIDDEN STAGE", rowX + 44, rowY + 8, SELECT_CHAR_NAME_FONT_BANK);
+                DrawTexturedRectList(gStageSelectRowPlateSprite, rowX, rowY, SELECT_OT_FOREGROUND);
+                continue;
+            }
 #endif
             if (stageIndex == row && cursorState != 0) {
                 gStageSelectRowPlateSprite[0].texture.r = gStageSelectRowPlateSprite[0].texture.g =
@@ -880,9 +921,23 @@ void DrawRotatedTexturedQuad(RotatedTexturedQuad *quad, int rx, int ry, int rz, 
 #ifndef VERSION_JP
 int StepStageSelectCursor(int selectMode, int stageIndex, int horizontal, int vertical)
 {
-    int count = *gStageSelectLayouts[selectMode];
+    int count = *STAGE_SELECT_LAYOUT(selectMode);
     int prevIndex;
 
+#ifdef TARGET_PC
+    if (count == 9) {
+        /* The eight as ever; down from either column's last row is Stage 18's, and from it down or up returns. */
+        if (stageIndex == 8) {
+            return vertical > 0 ? 0 : (vertical < 0 ? 3 : 8);
+        }
+        if (vertical > 0 && (stageIndex == 3 || stageIndex == 7)) {
+            return 8;
+        }
+        count = 8;
+    } else if (stageIndex >= count) {
+        stageIndex = 0; /* the extras turned off with Stage 18 chosen */
+    }
+#endif
     switch (count) {
     case 8:
         stageIndex += horizontal * STAGE_SELECT_ROWS_PER_COL;

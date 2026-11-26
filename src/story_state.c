@@ -52,6 +52,22 @@
 #include "credits.h"
 #include "globals.h"
 #include "pad.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+
+void DrawTwoPlayerContinueHud(int countdown, int p1Wins, int p2Wins);
+
+/* The Continue countdown; with the extras, a two-player VS one has the unused HUD with both players' wins. */
+static void PcDrawContinueCountdown(int countdown)
+{
+    if (PC_EXTRAS && (gPlayMode == PLAY_MODE_VS || gPlayMode == PLAY_MODE_LINK) && gHumanPlayerCount == 2) {
+        DrawTwoPlayerContinueHud(countdown, gVsWinCounts[0] % 100, gVsWinCounts[1] % 100);
+    } else {
+        DrawContinueCountdown(countdown);
+    }
+}
+#define DrawContinueCountdown PcDrawContinueCountdown
+#endif
 
 #define MOVIE_ID_OPENING 0
 #define MOVIE_ID_NORMAL_ENDING_BASE 1

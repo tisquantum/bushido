@@ -21,6 +21,9 @@
 #include "globals.h"
 #include "combat_state.h"
 #include "match_setup.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 void SetAiState(Fighter *fighter, int state, int delay)
 {
@@ -840,6 +843,15 @@ static void EnterAiFlankDirection(Fighter *fighter)
     left.vz = fighter->position.vz + sideZ;
     right.vx = fighter->position.vx + sideX;
     right.vz = fighter->position.vz + sideZ;
+#ifdef TARGET_PC
+    if (PC_FIX_BUGS) {
+        /* Fixed: the other side, the same direction turned the other way. */
+        right.vx = fighter->position.vx +
+                   ((dx * gSinLutQ12[ANGLE_QUARTER + ANGLE_EIGHTH] - dz * gSinLutQ12[ANGLE_EIGHTH]) >> AI_Q12_SHIFT);
+        right.vz = fighter->position.vz +
+                   ((dx * gSinLutQ12[ANGLE_EIGHTH] + dz * gSinLutQ12[ANGLE_QUARTER + ANGLE_EIGHTH]) >> AI_Q12_SHIFT);
+    }
+#endif
     left.vy = QueryFloorHeight(left.vx, fighter->position.vy, left.vz);
     if (left.vy == FLOOR_QUERY_MISS) {
         left.vy = FLOOR_HEIGHT_NONE;
@@ -923,7 +935,11 @@ static int RunAiIdleDecision(Fighter *fighter)
         else if ((rand() & 1) == 0)
             SetAiState(fighter, AI_STATE_SIDESTEP_UP, 0);
         else if ((rand() & 1) == 0)
+#ifdef TARGET_PC
+            SetAiState(fighter, PC_FIX_BUGS ? AI_STATE_SIDESTEP_DOWN : AI_STATE_SIDESTEP_UP, 0); /* fixed: down */
+#else
             SetAiState(fighter, AI_STATE_SIDESTEP_UP, 0); /* the same state again in the original */
+#endif
         else if ((rand() & 1) == 0)
             SetAiState(fighter, AI_STATE_SPRINT_RETREAT, 0);
         return 0;

@@ -523,7 +523,14 @@ static int UpdateDelayedAmbientTrigger(BillboardEffectWork *work, BillboardEffec
         if (cycle == 3) {
             gAmbientTriggerCycle = 0;
         }
+#ifdef TARGET_PC
+        /* variant is the caller's &packets: a console stack address (0x801Fxxxx) is negative, so the sound is
+         * always 0; the port's stack sits low in the image, where the same test picks a nonsense slot. */
+        (void)variant;
+        TriggerPositionalAmbientSound(0, &slot->pos);
+#else
         TriggerPositionalAmbientSound(variant > 0 ? variant + 5 : 0, &slot->pos);
+#endif
     }
     return primCount;
 }

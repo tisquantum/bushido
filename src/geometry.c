@@ -9,6 +9,9 @@
 #include "collision_scratch.h"
 #include "cloth.h"
 #include "geometry.h"
+#ifdef TARGET_PC
+#include "pc_rules.h"
+#endif
 
 #define SQRT_LUT_SIZE               1024  /* gSqrtLutQ3 entry count: floor(sqrt(i) * 8) */
 #define NORMAL_GTE_SAFE_MAX         16383 /* max component for unscaled GTE sqr0 without saturation */
@@ -843,5 +846,11 @@ int IsWeaponSwingPlaneVertical(Fighter *fighter)
     if (squared == 0)
         squared = 1;
     normalYQ12 = (work->normalOrTarget.y << 12) / (unsigned int)squared;
+#ifdef TARGET_PC
+    /* Fixed: compared as signed, as meant (unsigned, -2896 is huge and the test never passes). */
+    if (PC_FIX_BUGS) {
+        return (int)normalYQ12 < VERTICAL_SWING_NORMAL_Y_MAX && (int)normalYQ12 > -VERTICAL_SWING_NORMAL_Y_MAX;
+    }
+#endif
     return normalYQ12 < VERTICAL_SWING_NORMAL_Y_MAX && normalYQ12 > -VERTICAL_SWING_NORMAL_Y_MAX;
 }
