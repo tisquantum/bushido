@@ -1352,7 +1352,9 @@ static int UpdatePauseMenu(void)
         labels[i] = sPauseRowLabels[rows[i]];
     PcGameMenu("PAUSE", labels, count, sPauseCursor);
 
-    if ((gHumanPlayerCount == 2 && (pressed & BOTH_PADS_START)) || (pressed & PADstart) ||
+    /* start with select held isn't a resume: it is the way out (main.c holds both to leave the mode) */
+    if ((!(gPadState.held & BOTH_PADS(PADselect)) &&
+         ((gHumanPlayerCount == 2 && (pressed & BOTH_PADS_START)) || (pressed & PADstart))) ||
         (pressed & BOTH_PADS_CANCEL))
         return PAUSE_RESUME;
     if (pressed & BOTH_PADS_CONFIRM) {

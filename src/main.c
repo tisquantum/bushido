@@ -32,6 +32,70 @@
 #include "splash.h"
 #ifdef TARGET_PC
 #include "pc_substep.h"
+#include "pc_gameui.h"
+#endif
+
+#ifdef TARGET_PC
+int NetplayOnlineSimulation(void);
+
+/* Leaving a mode from anywhere in it. Holding start and select together (the console's way out, though its
+ * pause screen wanted the shoulder buttons held too) returns to the main menu from every screen of a mode: a
+ * bout, its replay and victory, the story's scenes, the continue screen, character select and the rest. On the
+ * screens that don't use select itself (everything but a bout), select alone held does the same. A bar fills
+ * as it is held. Not in Link mode or an online match, which have their own ways out, nor on the main menu, the
+ * options pages (which have a back of their own), the opening and the loading and saving states. */
+#define BACK_OUT_HOLD_FRAMES 30 /* one second */
+#define BACK_OUT_BOTH ((PADstart) | (PADselect))
+
+static int sBackOutFrames;
+
+static void CheckBackOut(void)
+{
+    int bout, selectAlone, startSelect, p;
+
+    switch (gGameState) {
+    case GAME_STATE_UPDATE_COMBAT:
+        bout = 1;
+        break;
+    case GAME_STATE_UPDATE_CHARACTER_SELECT: /* holds select to go back itself (menu_state.c) */
+    case GAME_STATE_UPDATE_SLASH_CLEAR_CUTSCENE:
+    case GAME_STATE_UPDATE_BATTLE_REPLAY:
+    case GAME_STATE_UPDATE_VICTORY_SCENE:
+    case GAME_STATE_UPDATE_STORY_CUTSCENE:
+    case GAME_STATE_UPDATE_CONTINUE_SCREEN:
+    case GAME_STATE_UPDATE_BAD_ENDING_SLIDE:
+    case GAME_STATE_UPDATE_STORY_PROLOGUE:
+    case GAME_STATE_UPDATE_APPROACH_CUTSCENE:
+    case GAME_STATE_UPDATE_MOVIE_THEATER:
+    case GAME_STATE_UPDATE_CREDITS:
+        bout = 0;
+        break;
+    default:
+        sBackOutFrames = 0;
+        return;
+    }
+    if (gPlayMode == PLAY_MODE_LINK || NetplayOnlineSimulation()) {
+        sBackOutFrames = 0;
+        return;
+    }
+    startSelect = 0;
+    for (p = 0; p < 2; p++) {
+        startSelect |= (gPadState.held & _PAD(p, BACK_OUT_BOTH)) == _PAD(p, BACK_OUT_BOTH);
+    }
+    selectAlone = !bout && gGameState != GAME_STATE_UPDATE_CHARACTER_SELECT &&
+                  (gPadState.held & BOTH_PADS(PADselect)) != 0;
+    if (!startSelect && !selectAlone) {
+        sBackOutFrames = 0;
+        return;
+    }
+    if (++sBackOutFrames >= BACK_OUT_HOLD_FRAMES) {
+        sBackOutFrames = 0;
+        gCombatPaused = 0;
+        gGameState = GAME_STATE_INIT_MAIN_MENU;
+    } else {
+        PcGameHold(sBackOutFrames * 100 / BACK_OUT_HOLD_FRAMES, "Hold to go back to the main menu");
+    }
+}
 #endif
 
 void SetBackgroundClear(int clearBackground, int red, int green, int blue)
@@ -257,6 +321,9 @@ void main(void)
         if (gLinkErrorFlag != 0) {
             gGameState = GAME_STATE_LINK_ABORT;
         }
+#ifdef TARGET_PC
+        CheckBackOut();
+#endif
         gGameStateHandlers[gGameState]();
         while (GetRCnt(RCntCNT1) < FRAME_PACING_HBLANKS) {
             rand();
