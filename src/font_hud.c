@@ -843,6 +843,25 @@ TexturedRectEntry gPauseOverlaySprites[5] = {
         GET_TPAGE(0, 1, 896, 256), 64, 156, 79, 156 }, TEXTURED_RECT_LAST_GROUP | 1, 337, 115, 15, 12 },
 };
 
+#ifdef TARGET_PC
+/* The pause menu's picture: the paused frame kept on screen, without the word (the menu says it). */
+int ShowPausedFrame(void)
+{
+    RECT source;
+    DR_MOVE move;
+    int page;
+
+    source.x = 0;
+    source.w = 640;
+    source.h = 240;
+    page = gFrameCounter & 1;
+    source.y = (1 - page) * 240;
+    SetDrawMove(&move, &source, 0, page * 240);
+    DrawPrim(&move);
+    return DrawSync(0);
+}
+#endif
+
 int ShowPauseOverlay(void)
 {
     RECT source;

@@ -586,11 +586,12 @@ short *gStageSelectLayouts[8] = {
 };
 
 #ifdef TARGET_PC
-/* The extras' VS layout: the eight rows drawn closer, and a ninth for Stage 18 (no name plate on the disc: its
- * name is text). */
+/* The extras' VS layout: the eight rows drawn closer, and a ninth for Stage 18 and a tenth for the open world
+ * (the castle's stages joined as in Story; no name plates on the disc: their names are text). */
 #define STAGE_SELECT_TEXT_ROW (-2)
+#define STAGE_SELECT_OPEN_WORLD_ROW (-3)
 static short sStageSelectLayoutVsExtras[] = {
-    9,
+    10,
     0, 64, 50,
     1, 64, 82,
     2, 64, 114,
@@ -599,7 +600,8 @@ static short sStageSelectLayoutVsExtras[] = {
     5, 328, 82,
     6, 328, 114,
     7, 328, 146,
-    STAGE_SELECT_TEXT_ROW, 196, 182,
+    STAGE_SELECT_TEXT_ROW, 64, 182,
+    STAGE_SELECT_OPEN_WORLD_ROW, 328, 182,
 };
 
 /* The layout a select mode draws and steps through: VS's gets Stage 18 with the extras on. */
@@ -802,11 +804,14 @@ int UpdateAndDrawSelectScreenUi(int mode, int leftArg, int rightArg)
             rowY = *layoutCursor++;
 #endif
 #ifdef TARGET_PC
-            if (stageNameIndex == STAGE_SELECT_TEXT_ROW) {
+            if (stageNameIndex == STAGE_SELECT_TEXT_ROW || stageNameIndex == STAGE_SELECT_OPEN_WORLD_ROW) {
                 gStageSelectRowPlateSprite[0].texture.r = gStageSelectRowPlateSprite[0].texture.g =
                     gStageSelectRowPlateSprite[0].texture.b =
                         stageIndex == row && cursorState != 0 ? STAGE_ROW_BRIGHTNESS_ACTIVE : STAGE_ROW_BRIGHTNESS_DIM;
-                DrawFormattedText("#X#Y#FHIDDEN STAGE", rowX + 44, rowY + 8, SELECT_CHAR_NAME_FONT_BANK);
+                if (stageNameIndex == STAGE_SELECT_TEXT_ROW)
+                    DrawFormattedText("#X#Y#FHIDDEN STAGE", rowX + 44, rowY + 8, SELECT_CHAR_NAME_FONT_BANK);
+                else
+                    DrawFormattedText("#X#Y#FOPEN WORLD", rowX + 52, rowY + 8, SELECT_CHAR_NAME_FONT_BANK);
                 DrawTexturedRectList(gStageSelectRowPlateSprite, rowX, rowY, SELECT_OT_FOREGROUND);
                 continue;
             }
@@ -925,13 +930,19 @@ int StepStageSelectCursor(int selectMode, int stageIndex, int horizontal, int ve
     int prevIndex;
 
 #ifdef TARGET_PC
-    if (count == 9) {
-        /* The eight as ever; down from either column's last row is Stage 18's, and from it down or up returns. */
-        if (stageIndex == 8) {
-            return vertical > 0 ? 0 : (vertical < 0 ? 3 : 8);
+    if (count == 10) {
+        /* The eight as ever; down from either column's last row is the extras' row below it (Stage 18 under the
+         * first column, the open world under the second), left and right cross between the two, and up or down
+         * from one returns to its column. */
+        if (stageIndex >= 8) {
+            if (horizontal != 0)
+                return stageIndex == 8 ? 9 : 8;
+            if (vertical > 0)
+                return stageIndex == 8 ? 0 : STAGE_SELECT_ROWS_PER_COL;
+            return vertical < 0 ? (stageIndex == 8 ? 3 : 7) : stageIndex;
         }
         if (vertical > 0 && (stageIndex == 3 || stageIndex == 7)) {
-            return 8;
+            return stageIndex == 3 ? 8 : 9;
         }
         count = 8;
     } else if (stageIndex >= count) {

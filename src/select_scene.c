@@ -439,6 +439,10 @@ SelectCamSegment gSelectCamScript2P[7] = {
     { 95, 15 }, { 110, 10 }, { 120, 10 }, { 130, 10 }, { 140, 10 }, { 150, 60 }, { 0, 0 },
 };
 
+#ifdef TARGET_PC
+static int sSelectKeepCursors;
+#endif
+
 void ResetCharacterSelectState(int twoPlayer)
 {
     int entryCount;
@@ -454,6 +458,11 @@ void ResetCharacterSelectState(int twoPlayer)
 
     entryCount = gSelectInitCount;
     gSelectTwoPlayer = twoPlayer;
+#ifdef TARGET_PC
+    if (sSelectKeepCursors) {
+        /* starting over after a cancel: the cursors stay where they were */
+    } else
+#endif
     if (entryCount == 0) {
         gSelectCharIndex[0] = 0;
         gSelectWeaponSlotP1 = 0;
@@ -571,6 +580,66 @@ void ResetCharacterSelectState(int twoPlayer)
     gSelectInitCount += 1;
 }
 
+#ifdef TARGET_PC
+/* Set by the character select each frame (menu_state.c): the player pressed cancel. */
+int gSelectCancel[2];
+
+static void TakeBackCharacter(int slot)
+{
+    struct MenuAnimState *anim = &gSelectAnimations[slot];
+
+    anim->flags &= ~MENU_ANIM_FLAG_CHAR_CONFIRMED;
+    anim->script = slot == MENU_ANIM_SLOT_P1 ? gSelectP1Script : gSelectP2Script;
+    anim->duration = 0;
+    anim->timer = 0;
+    anim->step = 0;
+    UpdateMenuAnimScript(slot, gSelectTwoPlayer);
+    PlayCharacterSelectSound(SELECT_SOUND_CURSOR);
+}
+
+/* The console has no way back a choice. Cancel takes a confirmed character back for its player; while the
+ * weapons are being chosen it starts the scene over, with the cursors where they were. Not once a weapon is
+ * confirmed: the scene is on its way to the stage. */
+static void ApplySelectCancel(void)
+{
+    struct MenuAnimState *p1 = &gSelectAnimations[MENU_ANIM_SLOT_P1];
+    struct MenuAnimState *p2 = &gSelectAnimations[MENU_ANIM_SLOT_P2];
+    int p1Cancel = gSelectCancel[0];
+    int p2Cancel = gSelectTwoPlayer != 0 && gSelectCancel[1];
+
+    if (!p1Cancel && !p2Cancel) {
+        return;
+    }
+    if (((p1->flags | p2->flags) & MENU_ANIM_FLAG_WEAPON_CONFIRMED) != 0) {
+        return;
+    }
+    if (gSelectPhase == SELECT_PHASE_WEAPON) {
+        WaitGpuIdle();
+        gSelectInitCount = 0;
+        sSelectKeepCursors = 1;
+        ResetCharacterSelectState(gSelectTwoPlayer);
+        sSelectKeepCursors = 0;
+        gSelectWeaponSlotP1 = 0;
+        PlayCharacterSelectSound(SELECT_SOUND_CURSOR);
+        return;
+    }
+    if (gSelectPhase != SELECT_PHASE_CHARACTER) {
+        return;
+    }
+    if ((unsigned int)(gSelectGameMode - SELECT_MODE_POV_VS) < 2 && p1Cancel) {
+        /* the first pad plays whichever fighter is being chosen */
+        p2Cancel = (p2->flags & MENU_ANIM_FLAG_CHAR_CONFIRMED) != 0;
+        p1Cancel = !p2Cancel;
+    }
+    if (p1Cancel && (p1->flags & MENU_ANIM_FLAG_CHAR_CONFIRMED) != 0) {
+        TakeBackCharacter(MENU_ANIM_SLOT_P1);
+    }
+    if (p2Cancel && (p2->flags & MENU_ANIM_FLAG_CHAR_CONFIRMED) != 0) {
+        TakeBackCharacter(MENU_ANIM_SLOT_P2);
+    }
+}
+#endif
+
 /* The Japanese build's stage select moves on the horizontal input alone. */
 #ifdef VERSION_JP
 int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confirm)
@@ -599,6 +668,9 @@ int UpdateCharacterSelectMenu(int p1Move, int p2Move, int p1Confirm, int p2Confi
     VECTOR position;
     WorldVector rotation;
 
+#ifdef TARGET_PC
+    ApplySelectCancel();
+#endif
     UpdateMenuAnimScript(MENU_ANIM_SLOT_P1, gSelectTwoPlayer);
     result = 0;
     if (gSelectTwoPlayer != 0) {

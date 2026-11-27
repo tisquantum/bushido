@@ -43,6 +43,7 @@
 #include "pad.h"
 #ifdef TARGET_PC
 #include "pc_rules.h"
+#include "pc_gameui.h"
 #endif
 
 #ifdef VERSION_JP
@@ -310,7 +311,8 @@ unsigned char gPracticeStageSelectTable[4] = {
 #define CHAR_SELECT_BACK_HOLD_FRAMES 30 /* one second */
 /* Played, watched or prepared (port/src/netplay.h): a spectator must run the match as the players do. */
 int NetplayOnlineSimulation(void);
-static short sCancelHeldFrames;
+static short sBackHeldFrames;
+extern int gSelectCancel[2]; /* select_scene.c */
 #endif
 
 void UpdateCharacterSelect(void)
@@ -364,8 +366,19 @@ void UpdateCharacterSelect(void)
             padInput.vertical[i] = vertical;
 #endif
             padInput.confirm[i] = (gPadState.pressed & (MENU_CONFIRM << shift)) != 0;
+#ifdef TARGET_PC
+            /* Not in Link mode or an online match, whose machines must see the same choices. */
+            gSelectCancel[i] = gPlayMode != PLAY_MODE_LINK && !NetplayOnlineSimulation() &&
+                               (gPadState.pressed & (MENU_CANCEL << shift)) != 0;
+#endif
         }
     }
+#ifdef TARGET_PC
+    if (gStoryChallengerTimer > 0) {
+        gSelectCancel[0] = 0;
+        gSelectCancel[1] = 0;
+    }
+#endif
 #ifdef VERSION_JP
     selectResult = UpdateCharacterSelectFrame(padInput.horizontal[0], padInput.horizontal[1],
                                               padInput.confirm[0], padInput.confirm[1]);
@@ -417,8 +430,12 @@ void UpdateCharacterSelect(void)
             int stage;
 
 #ifdef TARGET_PC
+            gVsOpenWorld = 0;
             if (PC_EXTRAS && GetSelectedStageIndex() == 8) {
                 stage = 18; /* the extras' ninth row (select_ui.c) */
+            } else if (PC_EXTRAS && GetSelectedStageIndex() == 9) {
+                stage = 10; /* the tenth: the castle's hub, its portals open */
+                gVsOpenWorld = 1;
             } else
 #endif
             if (gPovModeEnabled == 1) {
@@ -457,19 +474,24 @@ void UpdateCharacterSelect(void)
         }
     }
 #ifdef TARGET_PC
-    /* The console has no way back from character select: holding cancel on either pad returns to the main
-     * menu. A press still steps back a choice as before. Not in Link mode, a Story challenger bout, or an
-     * online match, which have their own ways out. */
+    /* The console has no way back from character select: holding select (back) on either pad returns to the
+     * main menu, with a bar that fills as it is held. Cancel steps back a choice (select_scene.c). Not in Link
+     * mode, a Story challenger bout, or an online match, which have their own ways out. */
     if (gGameState == GAME_STATE_UPDATE_CHARACTER_SELECT && gPlayMode != PLAY_MODE_LINK &&
         gStoryChallengerActive == 0 && gStoryChallengerTimer == 0 && !NetplayOnlineSimulation() &&
-        (gPadState.held & BOTH_PADS_CANCEL)) {
-        if (++sCancelHeldFrames >= CHAR_SELECT_BACK_HOLD_FRAMES)
+        (gPadState.held & BOTH_PADS(PADselect))) {
+        if (++sBackHeldFrames >= CHAR_SELECT_BACK_HOLD_FRAMES)
             gGameState = GAME_STATE_INIT_MAIN_MENU;
+        else
+            PcGameHold(sBackHeldFrames * 100 / CHAR_SELECT_BACK_HOLD_FRAMES, "Hold to go back to the main menu");
     } else {
-        sCancelHeldFrames = 0;
+        sBackHeldFrames = 0;
+        if (gGameState == GAME_STATE_UPDATE_CHARACTER_SELECT && gPlayMode != PLAY_MODE_LINK &&
+            gStoryChallengerActive == 0 && gStoryChallengerTimer == 0 && !NetplayOnlineSimulation())
+            PcGameHold(0, "Hold SELECT to go back");
     }
     if (gGameState != GAME_STATE_UPDATE_CHARACTER_SELECT)
-        sCancelHeldFrames = 0;
+        sBackHeldFrames = 0;
 #endif
     FlushQueuedSounds();
     if (gGameState != GAME_STATE_UPDATE_CHARACTER_SELECT) {

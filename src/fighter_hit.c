@@ -115,7 +115,11 @@ StageTransition *FindActiveStageTransition(void)
                                    fighter->position.vz >= transition->anchors[0].z &&
                                    fighter->position.vz < transition->anchors[0].z + transition->depth);
             }
+#ifdef TARGET_PC
+            if (gVsOpenWorld ? fightersInside >= 1 : fightersInside == 2) {
+#else
             if (fightersInside == 2) {
+#endif
                 return transition;
             }
         }

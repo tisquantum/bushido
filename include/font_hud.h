@@ -17,5 +17,8 @@ void DrawVersusWinCounts(int p1Wins, int p2Wins);
 void DrawSlashModeHud(int level, int kills);
 void DrawDemoOverlayText(void);
 int ShowPauseOverlay(void);
+#ifdef TARGET_PC
+int ShowPausedFrame(void);
+#endif
 
 #endif

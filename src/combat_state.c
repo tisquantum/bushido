@@ -9,6 +9,9 @@
 #include <libsn.h>
 
 #include "substep.h"
+#ifdef TARGET_PC
+#include "pc_gameui.h"
+#endif
 #include "pad.h"
 #include "stage_ambient_sound.h"
 #include "cd.h"
@@ -1188,7 +1191,12 @@ static int CheckStageTransition(void)
     StageTransition *transition;
 
     playMode = gPlayMode;
-    if (playMode == PLAY_MODE_PRACTICE || playMode == PLAY_MODE_LINK || playMode == PLAY_MODE_VS ||
+    if (playMode == PLAY_MODE_PRACTICE || playMode == PLAY_MODE_LINK ||
+#ifdef TARGET_PC
+        (playMode == PLAY_MODE_VS && !gVsOpenWorld) ||
+#else
+        playMode == PLAY_MODE_VS ||
+#endif
         gBladeLockState != BLADE_LOCK_NONE) {
         return gCurrentStageId;
     }
@@ -1302,6 +1310,71 @@ void UpdateSceneCameraAndWind(void)
     }
 }
 
+#ifdef TARGET_PC
+/* The pause menu: Resume, Character Select (where the mode has one) and Main Menu. The console's pause is only
+ * the word, left with start, or start and select with the shoulder buttons held to quit. Not in Link mode or an
+ * online match, which pause as the console did. */
+enum { PAUSE_ROW_RESUME, PAUSE_ROW_CHARACTER_SELECT, PAUSE_ROW_MAIN_MENU, PAUSE_ROW_COUNT };
+enum { PAUSE_STAY, PAUSE_RESUME, PAUSE_LEAVE };
+static const char *const sPauseRowLabels[PAUSE_ROW_COUNT] = {"Resume", "Character Select", "Main Menu"};
+static short sPauseCursor;
+
+int NetplayOnlineSimulation(void);
+
+static int PauseMenuWanted(void)
+{
+    return gPlayMode != PLAY_MODE_LINK && !NetplayOnlineSimulation();
+}
+
+static int UpdatePauseMenu(void)
+{
+    int rows[PAUSE_ROW_COUNT];
+    const char *labels[PAUSE_ROW_COUNT];
+    int count = 0, i;
+    unsigned int pressed = gPadState.pressed;
+
+    rows[count++] = PAUSE_ROW_RESUME;
+    if (gPlayMode == PLAY_MODE_VS || gPlayMode == PLAY_MODE_PRACTICE || gPlayMode == PLAY_MODE_SLASH)
+        rows[count++] = PAUSE_ROW_CHARACTER_SELECT;
+    rows[count++] = PAUSE_ROW_MAIN_MENU;
+    if (sPauseCursor >= count)
+        sPauseCursor = 0;
+
+    if (pressed & BOTH_PADS(PADLdown)) {
+        sPauseCursor = (sPauseCursor + 1) % count;
+        QueueSoundEffect(SOUND_COMBAT_PAUSE, SOUND_MAX_VOLUME, SOUND_MAX_VOLUME);
+    }
+    if (pressed & BOTH_PADS(PADLup)) {
+        sPauseCursor = (sPauseCursor + count - 1) % count;
+        QueueSoundEffect(SOUND_COMBAT_PAUSE, SOUND_MAX_VOLUME, SOUND_MAX_VOLUME);
+    }
+    for (i = 0; i < count; i++)
+        labels[i] = sPauseRowLabels[rows[i]];
+    PcGameMenu("PAUSE", labels, count, sPauseCursor);
+
+    if ((gHumanPlayerCount == 2 && (pressed & BOTH_PADS_START)) || (pressed & PADstart) ||
+        (pressed & BOTH_PADS_CANCEL))
+        return PAUSE_RESUME;
+    if (pressed & BOTH_PADS_CONFIRM) {
+        switch (rows[sPauseCursor]) {
+        case PAUSE_ROW_RESUME:
+            return PAUSE_RESUME;
+        case PAUSE_ROW_CHARACTER_SELECT:
+            gCombatPaused = 0;
+            StopAndWaitCdIdle();
+            LoadMenuSoundBanks();
+            gGameState = GAME_STATE_INIT_CHARACTER_SELECT;
+            return PAUSE_LEAVE;
+        case PAUSE_ROW_MAIN_MENU:
+            gCombatPaused = 0;
+            gGameState = GAME_STATE_INIT_MAIN_MENU;
+            return PAUSE_LEAVE;
+        }
+    }
+    return PAUSE_STAY;
+}
+#endif
+
 void UpdateCombatState(void)
 {
     PadInputFrame fighterInput;
@@ -1315,6 +1388,25 @@ void UpdateCombatState(void)
         gStateFrameTimer++;
     if (paused) {
         humanPlayerCount = gHumanPlayerCount;
+#ifdef TARGET_PC
+        if (PauseMenuWanted()) {
+            int choice = UpdatePauseMenu();
+
+            if (choice == PAUSE_LEAVE)
+                return;
+            if (choice == PAUSE_STAY) {
+                /* once a frame, not a tick: the picture is copied and the sounds flushed at the console's rate */
+                if (PC_LAST_SUBTICK) {
+                    FlushQueuedSounds();
+                    ShowPausedFrame();
+                }
+                return;
+            }
+            gCombatPaused = 0;
+            StartStageAmbientSounds();
+            SetCdAudioMix(SOUND_MAX_VOLUME, 0, SOUND_MAX_VOLUME, 0);
+        } else
+#endif
         if ((humanPlayerCount == 2 && (gPadState.pressed & BOTH_PADS_START)) ||
             (gPadState.pressed & PADstart)) {
             gCombatPaused = 0;
@@ -1334,6 +1426,11 @@ void UpdateCombatState(void)
                 gGameState = GAME_STATE_INIT_MAIN_MENU;
                 return;
             }
+#ifdef TARGET_PC
+            /* once a frame, not a tick (see above) */
+            if (!PC_LAST_SUBTICK)
+                return;
+#endif
             FlushQueuedSounds();
 #ifndef VERSION_JP
             ShowPauseOverlay();
@@ -1344,6 +1441,9 @@ void UpdateCombatState(void)
                ((gHumanPlayerCount == 2 && (gPadState.pressed & BOTH_PADS_START)) ||
                 (gPadState.pressed & PADstart))) {
         gCombatPaused = 1;
+#ifdef TARGET_PC
+        sPauseCursor = 0;
+#endif
         gDisplayPresentEnabled = 0;
         StopCombatRumbleAndAudio();
         QueuePriorityVoice0(SOUND_COMBAT_PAUSE, SOUND_MAX_VOLUME, SOUND_MAX_VOLUME);

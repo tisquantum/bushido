@@ -50,6 +50,9 @@ int gRendererMonochrome;
 int gBladeLockTimer;
 int gCombatFrameCounter;
 StageTransition *gPendingTransition;
+#ifdef TARGET_PC
+int gVsOpenWorld;
+#endif
 LightSlot *gActiveLightSlot;
 short gStoryHonorWindowTimer;
 struct SceneNode *gSecondaryCameraNodePtr;

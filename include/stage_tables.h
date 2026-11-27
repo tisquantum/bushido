@@ -21,6 +21,9 @@ typedef struct StageTransition {
 } StageTransition;
 
 extern StageTransition *gPendingTransition;
+#ifdef TARGET_PC
+extern int gVsOpenWorld; /* a VS bout in the castle, its stages joined by the Story portals */
+#endif
 
 #define STAGE_SPAWN_PAIR_COUNT 4
 

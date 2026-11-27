@@ -1287,6 +1287,9 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
     int moveSq;
     int stationary;
     FighterPose pose[2];
+#ifdef TARGET_PC
+    int pcBlendInterp = 0;
+#endif
     VECTOR prevPos;
     VECTOR lzc;
     VECTOR cutscenePos;
@@ -1683,6 +1686,20 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
             frame = fighter->animBaseFrame + (blendPlacement->frameLimit - 1) -
                 (fighter->animFrame - blendPlacement->startFrame);
         }
+#ifdef TARGET_PC
+        if (g_pcFrameTicks > 1 && fighter->animFrame + 1 < blendPlacement->frameLimit) {
+            /* A blend moves the root a frame at a time: with ticks, towards the next frame's, as an ordinary
+             * motion's root does (below). */
+            pcBlendInterp = 1;
+            if ((blendPlacement->flags & MOTION_FLAG_FORWARD) != 0) {
+                DecodePoseFramePair(frame, frame + 1, pose[0].joint, pose[1].joint,
+                                    (PoseWork *)&COLLISION_SCRATCH->work);
+            } else {
+                DecodePoseFramePair(frame - 1, frame, pose[1].joint, pose[0].joint,
+                                    (PoseWork *)&COLLISION_SCRATCH->work);
+            }
+        } else
+#endif
         DecodePoseFramePair(frame, frame, pose[0].joint, pose[0].joint, (PoseWork *)&COLLISION_SCRATCH->work);
         if (fighter->leftArmIntact == 0) {
             ApplyDisabledLeftArmPose(pose[0].joint);
@@ -1769,6 +1786,28 @@ void UpdateFighterFrame(int player, PadInputFrame *input)
         fighter->rootOffset = scratch->currentRoot;
         blendedSavedY = fighter->blendSavedRoot.y * fighter->poseBlendWeight / stature;
         work = ONE - fighter->poseBlendWeight;
+#ifdef TARGET_PC
+        if (pcBlendInterp && fighter->animFrac != 0) {
+            /* between this frame's root and the next's, by how far through the frame the tick is */
+            int pcHeading = (fighter->action == FIGHTER_ACTION_SPECIAL ||
+                             fighter->action == FIGHTER_ACTION_NEUTRAL &&
+                             (fighter->animInfo->flags & (ANIM_FLAG_WALK | ANIM_FLAG_DOWNED)) != 0 ||
+                             fighter->action == FIGHTER_ACTION_ATTACK)
+                                ? fighter->lockedMoveHeading
+                                : fighter->savedAngles.heading;
+            int pcNextX = (unsigned short)pose[1].joint[POSE_JOINT_ROOT].z *
+                gSinLutQ12[(unsigned short)pose[1].joint[POSE_JOINT_ROOT].y - pcHeading & ANGLE_MASK] >> 12;
+            int pcNextY = -pose[1].joint[POSE_JOINT_ROOT].x;
+            int pcNextZ = (unsigned short)pose[1].joint[POSE_JOINT_ROOT].z *
+                gSinLutQ12[(unsigned short)pose[1].joint[POSE_JOINT_ROOT].y - ANGLE_QUARTER - pcHeading & ANGLE_MASK] >> 12;
+
+            fighter->rootOffset.x += (pcNextX - scratch->currentRoot.x) * fighter->animFrac >> 12;
+            fighter->rootOffset.z += (pcNextZ - scratch->currentRoot.z) * fighter->animFrac >> 12;
+            fighter->rootOffset.y =
+                ((scratch->currentRoot.y + ((pcNextY - scratch->currentRoot.y) * fighter->animFrac >> 12)) * work >> 12) +
+                blendedSavedY;
+        } else
+#endif
         fighter->rootOffset.y = (scratch->currentRoot.y * work >> 12) + blendedSavedY;
         if (fighter->prevAction == FIGHTER_ACTION_NEUTRAL && (fighter->prevAnimInfo->flags & ANIM_FLAG_RUN) != 0) {
             if (fighter->action == FIGHTER_ACTION_NEUTRAL && (fighter->animInfo->flags & ANIM_FLAG_RUN) == 0) {
